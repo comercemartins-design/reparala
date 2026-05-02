@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../lib/prisma'
-import { generateProblemCode } from '@reparala/shared'
+import { generateProblemCode } from '../lib/shared'
 import { z } from 'zod'
 import { sendPushNotification } from '../services/notifications'
 
