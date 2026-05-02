@@ -1,0 +1,197 @@
+// ============================================================
+// REPARA LÁ — Schema do Banco de Dados (MVP)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+// ── ENUMS ────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  TECHNICIAN
+  ADMIN
+}
+
+enum ClientType {
+  RESIDENCE  // Residência
+  COMPANY    // Empresa
+  CONDO      // Condomínio
+}
+
+enum TechStatus {
+  OFFLINE
+  AVAILABLE
+  BUSY
+}
+
+enum OrderStatus {
+  OPEN              // Chamado aberto, aguardando despacho
+  DISPATCHED        // Técnico notificado, aguardando resposta
+  ACCEPTED          // Técnico aceitou, a caminho
+  EN_ROUTE          // A caminho do local
+  IN_PROGRESS       // Serviço em execução
+  AWAITING_APPROVAL // Aguardando aprovação do cliente
+  COMPLETED         // Concluído e aprovado
+  CANCELLED         // Cancelado
+  REJECTED          // Técnico recusou (volta para OPEN)
+}
+
+enum Priority {
+  LOW      // Agendado (72h)
+  NORMAL   // Normal (24h)
+  HIGH     // Urgente (4h)
+  CRITICAL // Crítico (1h)
+}
+
+enum MediaPhase {
+  REPORT      // Foto enviada pelo cliente ao abrir chamado
+  COMPLETION  // Foto enviada pelo técnico ao finalizar
+}
+
+// ── TABELAS ──────────────────────────────────────────────────
+
+model User {
+  id          String     @id @default(uuid())
+  supabaseId  String     @unique @map("supabase_id")
+  role        Role
+  name        String
+  phone       String?
+  pushToken   String?    @map("push_token") // Expo push token
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  client      Client?
+  technician  Technician?
+
+  @@map("users")
+}
+
+model Client {
+  id          String     @id @default(uuid())
+  userId      String     @unique @map("user_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        ClientType
+
+  // Endereço
+  addressLine String     @map("address_line")
+  city        String
+  state       String     @db.Char(2)
+  zipCode     String     @map("zip_code")
+  lat         Float?
+  lng         Float?
+
+  // Campos exclusivos de condomínio
+  condoName   String?    @map("condo_name")
+  condoBlock  String?    @map("condo_block")
+  condoFloor  Int?       @map("condo_floor")
+  condoUnit   String?    @map("condo_unit")
+
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  orders      Order[]
+
+  @@map("clients")
+}
+
+model Technician {
+  id           String     @id @default(uuid())
+  userId       String     @unique @map("user_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status       TechStatus @default(OFFLINE)
+  city         String                        // Região de atuação (texto simples no MVP)
+  specialties  String[]                      // ["HID", "CIV", "SER", "VID"]
+  rating       Float      @default(5.0)
+  jobsTotal    Int        @default(0) @map("jobs_total")
+  jobsToday    Int        @default(0) @map("jobs_today")
+
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  orders       Order[]
+  dispatchLogs DispatchLog[]
+
+  @@map("technicians")
+}
+
+model Order {
+  id             String      @id @default(uuid())
+
+  clientId       String      @map("client_id")
+  client         Client      @relation(fields: [clientId], references: [id])
+
+  technicianId   String?     @map("technician_id")
+  technician     Technician? @relation(fields: [technicianId], references: [id])
+
+  // Código estruturado do problema
+  problemCode    String      @map("problem_code")  // ex: HID.VAZ.RES.NRM.A3F2
+  category       String                             // HID | CIV | SER | VID
+  subcategory    String                             // VAZ | ENT | TRI | etc
+  description    String?
+
+  status         OrderStatus @default(OPEN)
+  priority       Priority    @default(NORMAL)
+
+  // Endereço do serviço (pode diferir do endereço do cliente)
+  serviceAddress String      @map("service_address")
+  serviceCity    String      @map("service_city")
+  serviceLat     Float?      @map("service_lat")
+  serviceLng     Float?      @map("service_lng")
+
+  // Avaliação do cliente
+  rating         Int?        // 1-5
+  ratingComment  String?     @map("rating_comment")
+
+  // Timestamps do ciclo de vida
+  dispatchedAt   DateTime?   @map("dispatched_at")
+  acceptedAt     DateTime?   @map("accepted_at")
+  startedAt      DateTime?   @map("started_at")
+  completedAt    DateTime?   @map("completed_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  media          OrderMedia[]
+  dispatchLogs   DispatchLog[]
+
+  @@index([status, createdAt])
+  @@index([technicianId, status])
+  @@index([clientId, createdAt])
+  @@map("orders")
+}
+
+model OrderMedia {
+  id        String     @id @default(uuid())
+  orderId   String     @map("order_id")
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  url       String                    // URL do Supabase Storage
+  phase     MediaPhase
+  mimeType  String?    @map("mime_type")
+
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("order_media")
+}
+
+model DispatchLog {
+  id            String     @id @default(uuid())
+  orderId       String     @map("order_id")
+  order         Order      @relation(fields: [orderId], references: [id])
+
+  technicianId  String     @map("technician_id")
+  technician    Technician @relation(fields: [technicianId], references: [id])
+
+  action        String     // offered | accepted | rejected | timeout | manual
+  offeredAt     DateTime   @default(now()) @map("offered_at")
+  respondedAt   DateTime?  @map("responded_at")
+
+  @@map("dispatch_logs")
+}

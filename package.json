@@ -1,0 +1,28 @@
+{
+  "name": "reparala",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "pnpm --filter @reparala/api dev",
+    "dev:admin": "pnpm --filter @reparala/admin-web dev",
+    "dev:client": "pnpm --filter @reparala/client-app start",
+    "dev:tech": "pnpm --filter @reparala/tech-app start",
+    "db:migrate": "pnpm --filter @reparala/db migrate",
+    "db:generate": "pnpm --filter @reparala/db generate",
+    "db:studio": "pnpm --filter @reparala/db studio",
+    "build": "turbo run build",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

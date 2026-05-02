@@ -1,0 +1,146 @@
+import type { FastifyInstance } from 'fastify'
+import { createClient } from '@supabase/supabase-js'
+import { prisma } from '../lib/prisma'
+import { z } from 'zod'
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+const registerSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(6),
+  phone: z.string().optional(),
+  role: z.enum(['CLIENT', 'TECHNICIAN', 'ADMIN']).default('CLIENT'),
+})
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+})
+
+export async function authRoutes(app: FastifyInstance) {
+
+  // POST /auth/register
+  app.post('/register', async (request, reply) => {
+    const body = registerSchema.parse(request.body)
+
+    // 1. Cria usuário no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: body.email,
+      password: body.password,
+      email_confirm: true,
+      user_metadata: { name: body.name, role: body.role },
+    })
+
+    if (authError || !authData.user) {
+      return reply.code(400).send({ success: false, error: authError?.message || 'Erro ao criar usuário' })
+    }
+
+    // 2. Salva no banco local
+    const user = await prisma.user.create({
+      data: {
+        supabaseId: authData.user.id,
+        name: body.name,
+        phone: body.phone,
+        role: body.role,
+      },
+    })
+
+    // 3. Gera JWT próprio
+    const token = app.jwt.sign({
+      userId: user.id,
+      supabaseId: user.supabaseId,
+      role: user.role,
+      name: user.name,
+    })
+
+    return reply.code(201).send({
+      success: true,
+      data: { token, user: { id: user.id, name: user.name, role: user.role } },
+      error: null,
+    })
+  })
+
+  // POST /auth/login
+  app.post('/login', async (request, reply) => {
+    const body = loginSchema.parse(request.body)
+
+    // 1. Autentica no Supabase
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: body.email,
+      password: body.password,
+    })
+
+    if (authError || !authData.user) {
+      return reply.code(401).send({ success: false, error: 'Email ou senha inválidos' })
+    }
+
+    // 2. Busca dados do usuário no banco local
+    const user = await prisma.user.findUnique({
+      where: { supabaseId: authData.user.id },
+      include: {
+        client: true,
+        technician: true,
+      },
+    })
+
+    if (!user) {
+      return reply.code(404).send({ success: false, error: 'Usuário não encontrado' })
+    }
+
+    // 3. Gera JWT
+    const token = app.jwt.sign({
+      userId: user.id,
+      supabaseId: user.supabaseId,
+      role: user.role,
+      name: user.name,
+    })
+
+    return reply.send({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          client: user.client,
+          technician: user.technician,
+        },
+      },
+      error: null,
+    })
+  })
+
+  // GET /auth/me
+  app.get('/me', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { client: true, technician: true },
+    })
+
+    if (!user) {
+      return reply.code(404).send({ success: false, error: 'Usuário não encontrado' })
+    }
+
+    return reply.send({ success: true, data: user, error: null })
+  })
+
+  // PATCH /auth/push-token — Técnico salva token de push
+  app.patch('/push-token', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+    const { pushToken } = request.body as { pushToken: string }
+
+    await prisma.user.update({
+      where: { id: payload.userId },
+      data: { pushToken },
+    })
+
+    return reply.send({ success: true, data: null, error: null })
+  })
+}
