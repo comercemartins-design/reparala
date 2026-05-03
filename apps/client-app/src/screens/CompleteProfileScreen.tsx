@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native'
+import { useAuth } from '../hooks/useAuth'
 import api from '../services/api'
 
 const CLIENT_TYPES = [
@@ -11,35 +12,33 @@ const CLIENT_TYPES = [
   { key: 'CONDO', label: 'Condomínio', icon: '🏗️', desc: 'Área comum ou unidade' },
 ]
 
-const { refreshUser } = useAuth()
+export default function CompleteProfileScreen({ navigation }: any) {
+  const { refreshUser } = useAuth()
+  const [type, setType] = useState('RESIDENCE')
+  const [addressLine, setAddressLine] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const [condoName, setCondoName] = useState('')
+  const [condoBlock, setCondoBlock] = useState('')
+  const [condoFloor, setCondoFloor] = useState('')
+  const [condoUnit, setCondoUnit] = useState('')
+  const [loading, setLoading] = useState(false)
 
-async function handleSave() {
-  if (!addressLine || !city || !state || !zipCode) {
-    Alert.alert('Atenção', 'Preencha o endereço completo')
-    return
+  async function fetchAddress(cep: string) {
+    const clean = cep.replace(/\D/g, '')
+    if (clean.length !== 8) return
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`)
+      const data = await res.json()
+      if (!data.erro) {
+        setAddressLine(data.logradouro)
+        setCity(data.localidade)
+        setState(data.uf)
+      }
+    } catch {}
   }
-  setLoading(true)
-  try {
-    await api.post('/clients/profile', {
-      type,
-      addressLine,
-      city,
-      state,
-      zipCode: zipCode.replace(/\D/g, ''),
-      ...(type === 'CONDO' && {
-        condoName,
-        condoBlock,
-        condoFloor: condoFloor ? parseInt(condoFloor) : undefined,
-        condoUnit,
-      }),
-    })
-    await refreshUser() // Atualiza o user com client preenchido → navegador vai para Home
-  } catch (error: any) {
-    Alert.alert('Erro', error.response?.data?.error || 'Erro ao salvar perfil')
-  } finally {
-    setLoading(false)
-  }
-}
+
   async function handleSave() {
     if (!addressLine || !city || !state || !zipCode) {
       Alert.alert('Atenção', 'Preencha o endereço completo')
@@ -60,9 +59,7 @@ async function handleSave() {
           condoUnit,
         }),
       })
-      Alert.alert('Pronto!', 'Perfil configurado com sucesso', [
-        { text: 'Continuar', onPress: () => navigation.replace('Home') }
-      ])
+      await refreshUser()
     } catch (error: any) {
       Alert.alert('Erro', error.response?.data?.error || 'Erro ao salvar perfil')
     } finally {
@@ -187,17 +184,4 @@ const styles = StyleSheet.create({
   typeIcon: { fontSize: 24, marginBottom: 4 },
   typeLabel: { fontSize: 12, fontWeight: '700', color: '#666' },
   typeLabelActive: { color: '#FF5A1F' },
-  typeDesc: { fontSize: 10, color: '#aaa', textAlign: 'center', marginTop: 2 },
-  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 12 },
-  input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 13, fontSize: 15, backgroundColor: '#fafafa',
-  },
-  row: { flexDirection: 'row' },
-  button: {
-    backgroundColor: '#FF5A1F', borderRadius: 10,
-    padding: 16, alignItems: 'center', marginTop: 28,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-})
+  typeDesc: { fontSize: 10, color: '#aaa', textAlign: 'cente
