@@ -3,7 +3,6 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native'
-import { useAuth } from '../hooks/useAuth'
 import api from '../services/api'
 
 const CLIENT_TYPES = [
@@ -12,8 +11,7 @@ const CLIENT_TYPES = [
   { key: 'CONDO', label: 'Condomínio', icon: '🏗️', desc: 'Área comum ou unidade' },
 ]
 
-export default function CompleteProfileScreen() {
-  const { user } = useAuth()
+export default function CompleteProfileScreen({ navigation }: any) {
   const [type, setType] = useState('RESIDENCE')
   const [addressLine, setAddressLine] = useState('')
   const [city, setCity] = useState('')
@@ -59,9 +57,9 @@ export default function CompleteProfileScreen() {
           condoUnit,
         }),
       })
-      // Recarrega o usuário
-      const meRes = await api.get('/auth/me')
-      Alert.alert('Pronto!', 'Perfil configurado com sucesso')
+      Alert.alert('Pronto!', 'Perfil configurado com sucesso', [
+        { text: 'Continuar', onPress: () => navigation.replace('Home') }
+      ])
     } catch (error: any) {
       Alert.alert('Erro', error.response?.data?.error || 'Erro ao salvar perfil')
     } finally {
@@ -102,7 +100,12 @@ export default function CompleteProfileScreen() {
       />
 
       <Text style={styles.label}>Endereço</Text>
-      <TextInput style={styles.input} placeholder="Rua, número" value={addressLine} onChangeText={setAddressLine} />
+      <TextInput
+        style={styles.input}
+        placeholder="Rua, número"
+        value={addressLine}
+        onChangeText={setAddressLine}
+      />
 
       <View style={styles.row}>
         <View style={{ flex: 2, marginRight: 8 }}>
@@ -111,7 +114,14 @@ export default function CompleteProfileScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.label}>Estado</Text>
-          <TextInput style={styles.input} placeholder="SP" value={state} onChangeText={setState} maxLength={2} autoCapitalize="characters" />
+          <TextInput
+            style={styles.input}
+            placeholder="SP"
+            value={state}
+            onChangeText={setState}
+            maxLength={2}
+            autoCapitalize="characters"
+          />
         </View>
       </View>
 
@@ -119,7 +129,12 @@ export default function CompleteProfileScreen() {
         <>
           <Text style={styles.sectionTitle}>Dados do Condomínio</Text>
           <Text style={styles.label}>Nome do condomínio</Text>
-          <TextInput style={styles.input} placeholder="Residencial das Flores" value={condoName} onChangeText={setCondoName} />
+          <TextInput
+            style={styles.input}
+            placeholder="Residencial das Flores"
+            value={condoName}
+            onChangeText={setCondoName}
+          />
           <View style={styles.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.label}>Bloco</Text>
@@ -127,7 +142,13 @@ export default function CompleteProfileScreen() {
             </View>
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={styles.label}>Andar</Text>
-              <TextInput style={styles.input} placeholder="3" value={condoFloor} onChangeText={setCondoFloor} keyboardType="numeric" />
+              <TextInput
+                style={styles.input}
+                placeholder="3"
+                value={condoFloor}
+                onChangeText={setCondoFloor}
+                keyboardType="numeric"
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Unidade</Text>
