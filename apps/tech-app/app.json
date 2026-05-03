@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Repara Lá Técnico",
+    "slug": "reparala-tech",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1E40AF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.reparala.tech",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Precisamos da câmera para registrar a conclusão do serviço.",
+        "NSPhotoLibraryUsageDescription": "Precisamos acessar suas fotos para enviar comprovantes do serviço.",
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para mostrar chamados próximos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1E40AF"
+      },
+      "package": "com.reparala.tech",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#1E40AF",
+          "sounds": []
+        }
+      ]
+    ],
+    "scheme": "reparala-tech",
+    "extra": {
+      "apiUrl": "https://reparalaapi-production.up.railway.app",
+      "supabaseUrl": "https://lryuojvdccnfnkscridq.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ"
+    }
+  }
+}

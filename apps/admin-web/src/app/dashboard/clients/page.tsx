@@ -1,0 +1,113 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { api } from '@/lib/api'
+import { StatusBadge } from '@/components/Badge'
+
+const CLIENT_TYPE_ICONS: Record<string, string> = {
+  RESIDENCE: '🏠', COMPANY: '🏢', CONDO: '🏗️',
+}
+
+export default function ClientsPage() {
+  const [clients, setClients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [typeFilter, setTypeFilter] = useState('')
+
+  useEffect(() => {
+    loadClients()
+  }, [typeFilter])
+
+  async function loadClients() {
+    setLoading(true)
+    try {
+      const params = typeFilter ? `?type=${typeFilter}` : ''
+      const res = await api.get<any>(`/clients${params}`)
+      setClients(res.data?.clients || [])
+    } catch {
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
+        <p className="text-gray-500 text-sm mt-0.5">{clients.length} cliente(s) cadastrado(s)</p>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex gap-2 mb-6">
+        {[
+          { value: '', label: 'Todos' },
+          { value: 'RESIDENCE', label: '🏠 Residência' },
+          { value: 'COMPANY', label: '🏢 Empresa' },
+          { value: 'CONDO', label: '🏗️ Condomínio' },
+        ].map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setTypeFilter(f.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+              typeFilter === f.value
+                ? 'bg-brand-800 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-500'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Cliente</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Tipo</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Endereço</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Cidade</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Chamados</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Cadastro</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="text-center py-12 text-gray-400">Carregando clientes...</td>
+              </tr>
+            ) : clients.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-12 text-gray-400">Nenhum cliente cadastrado</td>
+              </tr>
+            ) : (
+              clients.map((client: any) => (
+                <tr key={client.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{client.user?.name}</p>
+                      <p className="text-xs text-gray-400">{client.user?.phone || '—'}</p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={client.type} />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {client.addressLine || '—'}
+                    {client.type === 'CONDO' && client.condoName ? ` · ${client.condoName}` : ''}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{client.city} – {client.state}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {client._count?.orders ?? client.orders?.length ?? 0} chamado(s)
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-400">
+                    {new Date(client.user?.createdAt || client.createdAt || Date.now()).toLocaleDateString('pt-BR')}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
