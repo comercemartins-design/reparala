@@ -21,24 +21,20 @@ export async function clientRoutes(app: FastifyInstance) {
 
   // POST /clients/profile — Cliente completa seu perfil
   app.post('/profile', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const payload = request.user as any
-    const body = createClientProfileSchema.parse(request.body)
+  const payload = request.user as any
+  const body = createClientProfileSchema.parse(request.body)
 
-    // Verifica se já existe
-    const existing = await prisma.client.findUnique({ where: { userId: payload.userId } })
-    if (existing) {
-      return reply.code(409).send({ success: false, error: 'Perfil de cliente já existe' })
-    }
-
-    const client = await prisma.client.create({
-      data: {
-        userId: payload.userId,
-        ...body,
-      },
-    })
-
-    return reply.code(201).send({ success: true, data: client, error: null })
+  const client = await prisma.client.upsert({
+    where: { userId: payload.userId },
+    update: { ...body },
+    create: {
+      userId: payload.userId,
+      ...body,
+    },
   })
+
+  return reply.code(201).send({ success: true, data: client, error: null })
+})
 
   // GET /clients — Lista clientes (admin)
   app.get('/', { preHandler: [app.authenticate] }, async (request, reply) => {
