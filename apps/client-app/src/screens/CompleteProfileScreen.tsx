@@ -184,4 +184,17 @@ const styles = StyleSheet.create({
   typeIcon: { fontSize: 24, marginBottom: 4 },
   typeLabel: { fontSize: 12, fontWeight: '700', color: '#666' },
   typeLabelActive: { color: '#FF5A1F' },
-  typeDesc: { fontSize: 10, color: '#aaa', textAlign: 'cente
+  typeDesc: { fontSize: 10, color: '#aaa', textAlign: 'center', marginTop: 2 },
+  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 12 },
+  input: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+    padding: 13, fontSize: 15, backgroundColor: '#fafafa',
+  },
+  row: { flexDirection: 'row' },
+  button: {
+    backgroundColor: '#FF5A1F', borderRadius: 10,
+    padding: 16, alignItems: 'center', marginTop: 28,
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+})
