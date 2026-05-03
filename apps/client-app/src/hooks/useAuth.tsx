@@ -16,6 +16,7 @@ interface AuthContextData {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (data: SignUpData) => Promise<void>
   signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 interface SignUpData {
@@ -53,6 +54,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function refreshUser() {
+    try {
+      const response = await api.get('/auth/me')
+      const updatedUser = response.data.data
+      await AsyncStorage.setItem('@reparala:user', JSON.stringify(updatedUser))
+      setUser(updatedUser)
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error)
+    }
+  }
+
   async function signIn(email: string, password: string) {
     const response = await api.post('/auth/login', { email, password })
     const { token: newToken, user: newUser } = response.data.data
@@ -86,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

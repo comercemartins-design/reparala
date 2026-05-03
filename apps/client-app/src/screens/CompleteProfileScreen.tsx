@@ -11,32 +11,35 @@ const CLIENT_TYPES = [
   { key: 'CONDO', label: 'Condomínio', icon: '🏗️', desc: 'Área comum ou unidade' },
 ]
 
-export default function CompleteProfileScreen({ navigation }: any) {
-  const [type, setType] = useState('RESIDENCE')
-  const [addressLine, setAddressLine] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('')
-  const [zipCode, setZipCode] = useState('')
-  const [condoName, setCondoName] = useState('')
-  const [condoBlock, setCondoBlock] = useState('')
-  const [condoFloor, setCondoFloor] = useState('')
-  const [condoUnit, setCondoUnit] = useState('')
-  const [loading, setLoading] = useState(false)
+const { refreshUser } = useAuth()
 
-  async function fetchAddress(cep: string) {
-    const clean = cep.replace(/\D/g, '')
-    if (clean.length !== 8) return
-    try {
-      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`)
-      const data = await res.json()
-      if (!data.erro) {
-        setAddressLine(data.logradouro)
-        setCity(data.localidade)
-        setState(data.uf)
-      }
-    } catch {}
+async function handleSave() {
+  if (!addressLine || !city || !state || !zipCode) {
+    Alert.alert('Atenção', 'Preencha o endereço completo')
+    return
   }
-
+  setLoading(true)
+  try {
+    await api.post('/clients/profile', {
+      type,
+      addressLine,
+      city,
+      state,
+      zipCode: zipCode.replace(/\D/g, ''),
+      ...(type === 'CONDO' && {
+        condoName,
+        condoBlock,
+        condoFloor: condoFloor ? parseInt(condoFloor) : undefined,
+        condoUnit,
+      }),
+    })
+    await refreshUser() // Atualiza o user com client preenchido → navegador vai para Home
+  } catch (error: any) {
+    Alert.alert('Erro', error.response?.data?.error || 'Erro ao salvar perfil')
+  } finally {
+    setLoading(false)
+  }
+}
   async function handleSave() {
     if (!addressLine || !city || !state || !zipCode) {
       Alert.alert('Atenção', 'Preencha o endereço completo')
