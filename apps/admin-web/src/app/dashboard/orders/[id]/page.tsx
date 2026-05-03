@@ -150,6 +150,47 @@ export default function OrderDetailPage() {
               <InfoRow label="Cidade" value={order.serviceCity || '—'} />
               <InfoRow label="Aberto em" value={new Date(order.createdAt).toLocaleString('pt-BR')} />
             </div>
+
+            {/* Bloco exclusivo de condomínio */}
+            {order.client?.type === 'CONDO' && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 font-semibold mb-3 flex items-center gap-1.5">
+                  🏗️ DADOS DO CONDOMÍNIO
+                </p>
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  {order.client?.condoName && (
+                    <div>
+                      <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Condomínio</p>
+                      <p className="text-sm font-bold text-blue-900">{order.client.condoName}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-3">
+                    {order.client?.condoBlock && (
+                      <div className="bg-white rounded-lg p-2.5 text-center">
+                        <p className="text-[10px] text-gray-400 font-semibold">Bloco</p>
+                        <p className="text-sm font-bold text-gray-800">{order.client.condoBlock}</p>
+                      </div>
+                    )}
+                    {order.client?.condoFloor != null && (
+                      <div className="bg-white rounded-lg p-2.5 text-center">
+                        <p className="text-[10px] text-gray-400 font-semibold">Andar</p>
+                        <p className="text-sm font-bold text-gray-800">{order.client.condoFloor}º</p>
+                      </div>
+                    )}
+                    {order.client?.condoUnit && (
+                      <div className="bg-white rounded-lg p-2.5 text-center">
+                        <p className="text-[10px] text-gray-400 font-semibold">Unidade</p>
+                        <p className="text-sm font-bold text-gray-800">{order.client.condoUnit}</p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-blue-500">
+                    📍 {order.serviceAddress}, {order.serviceCity}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {order.description && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-xs text-gray-500 font-semibold mb-1">Descrição</p>
@@ -187,8 +228,18 @@ export default function OrderDetailPage() {
             <h2 className="font-bold text-gray-800 mb-4">Técnico responsável</h2>
             {order.technician ? (
               <div>
-                <p className="font-semibold text-gray-900">{order.technician.user?.name}</p>
-                <p className="text-sm text-gray-500 mt-1">{order.technician.city}</p>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900">{order.technician.user?.name}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{order.technician.city}</p>
+                  </div>
+                  <Link
+                    href={`/dashboard/technicians/${order.technician.id}`}
+                    className="text-xs font-semibold text-brand-600 hover:underline"
+                  >
+                    Editar →
+                  </Link>
+                </div>
                 <div className="flex items-center gap-2 mt-2">
                   <StatusBadge status={order.technician.status} />
                   {order.technician.rating && (
@@ -197,9 +248,20 @@ export default function OrderDetailPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  {order.technician.user?.phone || 'Sem telefone'}
-                </p>
+                {order.technician.user?.phone ? (
+                  <a
+                    href={`https://wa.me/55${order.technician.user.phone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition"
+                  >
+                    <span>💬</span>
+                    <span className="font-semibold">{order.technician.user.phone}</span>
+                    <span className="ml-auto text-xs text-green-500">WhatsApp →</span>
+                  </a>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-2">Sem telefone</p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-400">Nenhum técnico atribuído</p>
@@ -249,9 +311,20 @@ export default function OrderDetailPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="font-bold text-gray-800 mb-4">Cliente</h2>
             <p className="font-semibold text-gray-900">{order.client?.user?.name}</p>
-            <p className="text-sm text-gray-500 mt-1">{CLIENT_TYPE_LABELS[order.client?.type] || '—'}</p>
-            {order.client?.user?.phone && (
-              <p className="text-sm text-gray-500 mt-1">{order.client.user.phone}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{CLIENT_TYPE_LABELS[order.client?.type] || '—'}</p>
+            {order.client?.user?.phone ? (
+              <a
+                href={`https://wa.me/55${order.client.user.phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition"
+              >
+                <span>💬</span>
+                <span className="font-semibold">{order.client.user.phone}</span>
+                <span className="ml-auto text-xs text-green-500">WhatsApp →</span>
+              </a>
+            ) : (
+              <p className="text-xs text-gray-400 mt-2">Sem telefone</p>
             )}
             {order.rating && (
               <div className="mt-3 pt-3 border-t border-gray-100">

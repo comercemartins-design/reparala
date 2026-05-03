@@ -139,21 +139,36 @@ export default function TechniciansPage() {
                     <StatusBadge status={tech.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => toggleAvailability(tech)}
-                      disabled={togglingId === tech.id || tech.status === 'BUSY'}
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition disabled:opacity-40 ${
-                        tech.status === 'AVAILABLE'
-                          ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                          : 'border-green-300 text-green-700 hover:bg-green-50'
-                      }`}
-                    >
-                      {togglingId === tech.id
-                        ? '...'
-                        : tech.status === 'AVAILABLE'
-                        ? 'Desligar'
-                        : 'Ligar'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {tech.user?.phone && (
+                        <a
+                          href={`https://wa.me/55${tech.user.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="WhatsApp"
+                          className="text-green-600 hover:text-green-700 text-lg"
+                        >
+                          💬
+                        </a>
+                      )}
+                      <button
+                        onClick={() => toggleAvailability(tech)}
+                        disabled={togglingId === tech.id || tech.status === 'BUSY'}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition disabled:opacity-40 ${
+                          tech.status === 'AVAILABLE'
+                            ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                            : 'border-green-300 text-green-700 hover:bg-green-50'
+                        }`}
+                      >
+                        {togglingId === tech.id ? '...' : tech.status === 'AVAILABLE' ? 'Desligar' : 'Ligar'}
+                      </button>
+                      <Link
+                        href={`/dashboard/technicians/${tech.id}`}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-brand-200 text-brand-700 hover:bg-brand-50 transition"
+                      >
+                        Editar
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))

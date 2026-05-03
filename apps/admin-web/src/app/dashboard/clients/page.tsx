@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/Badge'
 
@@ -68,16 +69,17 @@ export default function ClientsPage() {
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Cidade</th>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Chamados</th>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Cadastro</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-gray-400">Carregando clientes...</td>
+                <td colSpan={7} className="text-center py-12 text-gray-400">Carregando clientes...</td>
               </tr>
             ) : clients.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-gray-400">Nenhum cliente cadastrado</td>
+                <td colSpan={7} className="text-center py-12 text-gray-400">Nenhum cliente cadastrado</td>
               </tr>
             ) : (
               clients.map((client: any) => (
@@ -91,9 +93,14 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">
                     <StatusBadge status={client.type} />
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {client.addressLine || '—'}
-                    {client.type === 'CONDO' && client.condoName ? ` · ${client.condoName}` : ''}
+                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
+                    <p className="truncate">{client.addressLine || '—'}</p>
+                    {client.type === 'CONDO' && client.condoName && (
+                      <p className="text-xs text-blue-500 truncate">🏗️ {client.condoName}
+                        {client.condoBlock ? ` · Bl. ${client.condoBlock}` : ''}
+                        {client.condoUnit ? ` · Ap. ${client.condoUnit}` : ''}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{client.city} – {client.state}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">
@@ -101,6 +108,27 @@ export default function ClientsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-400">
                     {new Date(client.user?.createdAt || client.createdAt || Date.now()).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {client.user?.phone && (
+                        <a
+                          href={`https://wa.me/55${client.user.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="WhatsApp"
+                          className="text-green-600 hover:text-green-700 text-lg"
+                        >
+                          💬
+                        </a>
+                      )}
+                      <Link
+                        href={`/dashboard/clients/${client.id}`}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-brand-200 text-brand-700 hover:bg-brand-50 transition"
+                      >
+                        Editar
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))

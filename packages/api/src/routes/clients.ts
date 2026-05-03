@@ -65,6 +65,62 @@ export async function clientRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { clients, total }, error: null })
   })
 
+  // PATCH /clients/:id — Admin edita dados do cliente
+  app.patch('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') {
+      return reply.code(403).send({ success: false, error: 'Acesso negado' })
+    }
+
+    const { name, phone, password, type, addressLine, city, state, zipCode,
+            condoName, condoBlock, condoFloor, condoUnit } = request.body as any
+
+    const client = await prisma.client.findUnique({ where: { id }, include: { user: true } })
+    if (!client) return reply.code(404).send({ success: false, error: 'Cliente não encontrado' })
+
+    // Atualiza perfil do cliente
+    await prisma.client.update({
+      where: { id },
+      data: {
+        ...(type && { type }),
+        ...(addressLine && { addressLine }),
+        ...(city && { city }),
+        ...(state && { state }),
+        ...(zipCode && { zipCode }),
+        ...(condoName !== undefined && { condoName }),
+        ...(condoBlock !== undefined && { condoBlock }),
+        ...(condoFloor !== undefined && { condoFloor: condoFloor ? Number(condoFloor) : null }),
+        ...(condoUnit !== undefined && { condoUnit }),
+      },
+    })
+
+    // Atualiza nome/telefone no User
+    if (name || phone !== undefined) {
+      await prisma.user.update({
+        where: { id: (client as any).userId },
+        data: {
+          ...(name && { name }),
+          ...(phone !== undefined && { phone }),
+        },
+      })
+    }
+
+    // Atualiza senha no Supabase Auth
+    if (password && password.length >= 6) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      await sb.auth.admin.updateUserById((client as any).user.supabaseId, { password })
+    }
+
+    const updated = await prisma.client.findUnique({
+      where: { id },
+      include: { user: true, _count: { select: { orders: true } } },
+    })
+
+    return reply.send({ success: true, data: updated, error: null })
+  })
+
   // GET /clients/:id — Detalhes de um cliente
   app.get('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }

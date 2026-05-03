@@ -26,7 +26,7 @@ export default function LoginPage() {
         return
       }
       storeAuth(res.data.token, res.data.user)
-      router.replace('/dashboard')
+      window.location.href = '/dashboard'
     } catch (err: any) {
       setError(err.message || 'Email ou senha inválidos')
     } finally {

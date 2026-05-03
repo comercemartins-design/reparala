@@ -77,10 +77,10 @@ export async function technicianRoutes(app: FastifyInstance) {
     return reply.code(201).send({ success: true, data: user, error: null })
   })
 
-  // PATCH /technicians/:id — Atualiza dados do técnico
+  // PATCH /technicians/:id — Atualiza dados do técnico (admin)
   app.patch('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { specialties, city, status } = request.body as any
+    const { specialties, city, status, name, phone, password } = request.body as any
 
     const technician = await prisma.technician.update({
       where: { id },
@@ -92,7 +92,30 @@ export async function technicianRoutes(app: FastifyInstance) {
       include: { user: true },
     })
 
-    return reply.send({ success: true, data: technician, error: null })
+    // Atualiza nome/telefone no User
+    if (name || phone !== undefined) {
+      await prisma.user.update({
+        where: { id: (technician as any).userId },
+        data: {
+          ...(name && { name }),
+          ...(phone !== undefined && { phone }),
+        },
+      })
+    }
+
+    // Atualiza senha no Supabase Auth
+    if (password && password.length >= 6) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      await sb.auth.admin.updateUserById((technician as any).user.supabaseId, { password })
+    }
+
+    const updated = await prisma.technician.findUnique({
+      where: { id },
+      include: { user: true },
+    })
+
+    return reply.send({ success: true, data: updated, error: null })
   })
 
   // PATCH /technicians/:id/availability — Técnico muda disponibilidade
