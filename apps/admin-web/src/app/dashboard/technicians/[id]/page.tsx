@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/Badge'
 
@@ -42,16 +43,13 @@ export default function TechnicianEditPage() {
   async function loadTech() {
     setLoading(true)
     try {
-      const res = await api.get<any>('/technicians')
-      const list: any[] = res.data || []
-      const found = list.find((t: any) => t.id === id)
-      if (found) {
-        setTech(found)
-        setName(found.user?.name || '')
-        setPhone(found.user?.phone || '')
-        setCity(found.city || '')
-        setSpecialties(found.specialties || [])
-      }
+      const res = await api.get<any>(`/technicians/${id}`)
+      const found = res.data
+      setTech(found)
+      setName(found.user?.name || '')
+      setPhone(found.user?.phone || '')
+      setCity(found.city || '')
+      setSpecialties(found.specialties || [])
     } catch {
       setError('Erro ao carregar técnico')
     } finally {
@@ -244,6 +242,28 @@ export default function TechnicianEditPage() {
           {saving ? 'Salvando...' : 'Salvar alterações'}
         </button>
       </form>
+
+      {/* Histórico de chamados */}
+      {tech.orders?.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 mt-5">
+          <h2 className="font-bold text-gray-800 mb-4">Últimos chamados</h2>
+          <div className="space-y-2">
+            {tech.orders.map((order: any) => (
+              <Link key={order.id} href={`/dashboard/orders/${order.id}`}
+                className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition border border-gray-50">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 font-mono">{order.problemCode}</p>
+                  <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {order.rating && <span className="text-sm text-amber-500">{'★'.repeat(order.rating)}</span>}
+                  <StatusBadge status={order.status} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

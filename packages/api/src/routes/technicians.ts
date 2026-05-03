@@ -77,6 +77,31 @@ export async function technicianRoutes(app: FastifyInstance) {
     return reply.code(201).send({ success: true, data: user, error: null })
   })
 
+  // GET /technicians/:id — Detalhes de um técnico (admin)
+  app.get('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') {
+      return reply.code(403).send({ success: false, error: 'Acesso negado' })
+    }
+
+    const technician = await prisma.technician.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: { id: true, problemCode: true, status: true, createdAt: true, rating: true },
+        },
+      },
+    })
+
+    if (!technician) return reply.code(404).send({ success: false, error: 'Técnico não encontrado' })
+
+    return reply.send({ success: true, data: technician, error: null })
+  })
+
   // PATCH /technicians/:id — Atualiza dados do técnico (admin)
   app.patch('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
