@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Repara Lá",
+    "slug": "reparala-client",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF5A1F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.reparala.client",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Precisamos da câmera para você tirar fotos do problema de manutenção.",
+        "NSPhotoLibraryUsageDescription": "Precisamos acessar suas fotos para você enviar imagens do problema.",
+        "NSMicrophoneUsageDescription": "Precisamos do microfone para gravar áudios descrevendo o problema."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF5A1F"
+      },
+      "package": "com.reparala.client",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+     
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#FF5A1F",
+          "sounds": []
+        }
+      ]
+    ],
+    "scheme": "reparala",
+    "extra": {
+      "apiUrl": "https://reparalaapi-production.up.railway.app",
+      "supabaseUrl": "https://lryuojvdccnfnkscridq.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ"
+    }
+  }
+}
