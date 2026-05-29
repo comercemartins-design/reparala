@@ -14,7 +14,7 @@ export default function AdminsPage() {
 
   async function loadAdmins() {
     try {
-      const res = await api.get('/admins')
+      const res = await api.get<any>('/admins')
       setAdmins(res.data.data.admins || [])
     } catch (err) {
       console.error(err)
