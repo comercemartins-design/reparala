@@ -236,6 +236,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     const data: any = { status }
+    if (status === 'EN_ROUTE') data.enRouteAt = new Date()
     if (status === 'IN_PROGRESS') data.startedAt = new Date()
     if (status === 'COMPLETED') data.completedAt = new Date()
 
@@ -254,14 +255,16 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // Notifica cliente sobre mudanças importantes
+    const techName = order.technician?.user?.name || 'Técnico'
+    const techPhone = order.technician?.user?.phone || ''
     const notifyOn: Record<string, string> = {
       EN_ROUTE: '🚗 Técnico a caminho!',
       IN_PROGRESS: '🔧 Serviço iniciado',
       AWAITING_APPROVAL: '✅ Serviço concluído — avalie agora',
     }
     const notifyBody: Record<string, string> = {
-      EN_ROUTE: `O técnico ${order.technician?.user?.name || ''} está a caminho para o chamado ${order.problemCode}.`,
-      IN_PROGRESS: `O serviço do chamado ${order.problemCode} acaba de ser iniciado.`,
+      EN_ROUTE: `${techName}${techPhone ? ` (${techPhone})` : ''} está a caminho para o chamado ${order.problemCode}. Guarde essa informação para sua segurança.`,
+      IN_PROGRESS: `O serviço do chamado ${order.problemCode} acaba de ser iniciado por ${techName}.`,
       AWAITING_APPROVAL: `Você tem 24h para avaliar o serviço ${order.problemCode}. Após isso, será fechado automaticamente.`,
     }
     if (notifyOn[status] && order.client?.user?.pushToken) {

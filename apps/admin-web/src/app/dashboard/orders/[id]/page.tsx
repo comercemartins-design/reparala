@@ -139,6 +139,7 @@ export default function OrderDetailPage() {
                 if (step.key === 'OPEN' && order.createdAt) timestamp = new Date(order.createdAt).toLocaleString('pt-BR')
                 if (step.key === 'DISPATCHED' && order.dispatchedAt) timestamp = new Date(order.dispatchedAt).toLocaleString('pt-BR')
                 if (step.key === 'ACCEPTED' && order.acceptedAt) timestamp = new Date(order.acceptedAt).toLocaleString('pt-BR')
+                if (step.key === 'EN_ROUTE' && order.enRouteAt) timestamp = new Date(order.enRouteAt).toLocaleString('pt-BR')
                 if (step.key === 'IN_PROGRESS' && order.startedAt) timestamp = new Date(order.startedAt).toLocaleString('pt-BR')
                 if (step.key === 'AWAITING_APPROVAL' && order.completedAt) timestamp = new Date(order.completedAt).toLocaleString('pt-BR')
                 if (step.key === 'COMPLETED' && order.status === 'COMPLETED') timestamp = new Date(order.updatedAt).toLocaleString('pt-BR')

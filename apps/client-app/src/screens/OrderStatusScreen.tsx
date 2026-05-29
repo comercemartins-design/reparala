@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator,
-  RefreshControl, FlatList, TextInput,
+  RefreshControl, FlatList, TextInput, Linking,
 } from 'react-native'
 import api from '../services/api'
 
@@ -95,11 +95,27 @@ export function OrderStatusScreen({ route, navigation }: any) {
       {/* Técnico */}
       {order.technician && (
         <View style={styles.techCard}>
-          <Text style={styles.techLabel}>Técnico responsável</Text>
-          <Text style={styles.techName}>{order.technician.user?.name}</Text>
-          <View style={styles.techRating}>
-            <Text style={styles.techRatingText}>⭐ {order.technician.rating?.toFixed(1)}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.techLabel}>Técnico responsável</Text>
+            <Text style={styles.techName}>{order.technician.user?.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <View style={[styles.techRating, { alignSelf: 'flex-start' }]}>
+                <Text style={styles.techRatingText}>⭐ {order.technician.rating?.toFixed(1) || 'Novo'}</Text>
+              </View>
+            </View>
           </View>
+          {order.technician.user?.phone && (
+            <TouchableOpacity 
+              style={{ backgroundColor: '#D1FAE5', padding: 12, borderRadius: 12, marginLeft: 10 }}
+              onPress={() => {
+                const phoneDigits = order.technician.user.phone.replace(/\D/g, '')
+                const number = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`
+                Linking.openURL(`https://wa.me/${number}`)
+              }}
+            >
+              <Text style={{ fontSize: 24 }}>💬</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
