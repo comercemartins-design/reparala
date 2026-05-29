@@ -8,7 +8,7 @@ const SPECIALTIES = [
   { key: 'HID', label: 'Hidráulica', icon: '💧' },
   { key: 'CIV', label: 'Civil',      icon: '🏗️' },
   { key: 'SER', label: 'Serralheria',icon: '🔩' },
-  { key: 'VID', label: 'Vidraçaria', icon: '🪟' },
+  { key: 'ELE', label: 'Elétrica', icon: '⚡' },
 ]
 
 export default function NewTechnicianPage() {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native'
 import { useAuth } from '../hooks/useAuth'
 
@@ -20,85 +20,91 @@ export default function LoginScreen() {
     try {
       await signIn(email.trim().toLowerCase(), password)
     } catch (error: any) {
-      Alert.alert('Erro ao entrar', error.message || error.response?.data?.error || 'Verifique suas credenciais')
+      Alert.alert('Erro ao entrar', error.response?.data?.error || error.message || 'Email ou senha inválidos')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <Text style={styles.logo}>🔧</Text>
+        <Text style={styles.emoji}>🔧</Text>
         <Text style={styles.title}>Repara Lá</Text>
-        <Text style={styles.subtitle}>Painel do Técnico</Text>
+        <Text style={styles.subtitle}>Portal do Técnico</Text>
       </View>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="seu@email.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }} keyboardShouldPersistTaps="handled">
+        <View style={styles.form}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="seuemail@email.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-        <Text style={styles.label}>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="••••••••"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="••••••••"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.buttonText}>Entrar</Text>
+            }
+          </TouchableOpacity>
 
-        <Text style={styles.hint}>
-          Acesso exclusivo para técnicos cadastrados.{'\n'}
-          Entre em contato com o administrador para obter sua conta.
-        </Text>
-      </View>
+          <Text style={styles.hint}>Sua conta é criada pelo administrador do sistema.</Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    backgroundColor: '#1E40AF', paddingTop: 80, paddingBottom: 40,
-    alignItems: 'center',
+  container: { flex: 1, backgroundColor: '#1E40AF' },
+  header: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
+  emoji: { fontSize: 64, marginBottom: 12 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
+  subtitle: { fontSize: 16, color: '#93C5FD', marginTop: 4 },
+  form: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingBottom: 40,
   },
-  logo: { fontSize: 56, marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  form: { padding: 24, paddingTop: 32 },
-  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 16 },
+  label: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6, marginTop: 16 },
   input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 14, fontSize: 15, backgroundColor: '#fafafa',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    backgroundColor: '#F9FAFB',
+    color: '#111',
   },
   button: {
-    backgroundColor: '#1E40AF', borderRadius: 10,
-    padding: 16, alignItems: 'center', marginTop: 28,
+    backgroundColor: '#1E40AF',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 24,
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  hint: { fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 20, lineHeight: 18 },
+  hint: { textAlign: 'center', color: '#9CA3AF', fontSize: 12, marginTop: 16 },
 })

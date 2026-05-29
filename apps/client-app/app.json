@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Precisamos da câmera para você tirar fotos do problema de manutenção.",
         "NSPhotoLibraryUsageDescription": "Precisamos acessar suas fotos para você enviar imagens do problema.",
-        "NSMicrophoneUsageDescription": "Precisamos do microfone para gravar áudios descrevendo o problema."
+        "NSMicrophoneUsageDescription": "Precisamos do microfone para gravar áudios descrevendo o problema.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -39,7 +40,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-     
       [
         "expo-notifications",
         {
@@ -53,7 +53,10 @@
     "extra": {
       "apiUrl": "https://reparalaapi-production.up.railway.app",
       "supabaseUrl": "https://lryuojvdccnfnkscridq.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ"
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ",
+      "eas": {
+        "projectId": "39d53888-817b-4f03-b5f1-84e35dd603c8"
+      }
     }
   }
 }

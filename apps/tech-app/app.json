@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#1E40AF"
     },
@@ -21,6 +22,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1E40AF"
       },
       "package": "com.reparala.tech",
@@ -49,7 +51,11 @@
     "extra": {
       "apiUrl": "https://reparalaapi-production.up.railway.app",
       "supabaseUrl": "https://lryuojvdccnfnkscridq.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ"
-    }
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ",
+      "eas": {
+        "projectId": "9395d88b-3f8a-4e24-8316-83db9206c298"
+      }
+    },
+    "owner": "reaparala"
   }
 }

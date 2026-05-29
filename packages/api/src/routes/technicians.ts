@@ -8,7 +8,7 @@ const createTechSchema = z.object({
   password: z.string().min(6),
   phone: z.string(),
   city: z.string(),
-  specialties: z.array(z.enum(['HID', 'CIV', 'SER', 'VID'])).min(1),
+  specialties: z.array(z.enum(['HID', 'CIV', 'SER', 'ELE'])).min(1),
 })
 
 export async function technicianRoutes(app: FastifyInstance) {
@@ -20,11 +20,14 @@ export async function technicianRoutes(app: FastifyInstance) {
       return reply.code(403).send({ success: false, error: 'Acesso negado' })
     }
 
-    const { status, specialty } = request.query as any
+    const { status, specialty, search } = request.query as any
 
     const where: any = {}
     if (status) where.status = status
     if (specialty) where.specialties = { has: specialty }
+    if (search) {
+      where.user = { name: { contains: search, mode: 'insensitive' } }
+    }
 
     const technicians = await prisma.technician.findMany({
       where,
@@ -99,7 +102,34 @@ export async function technicianRoutes(app: FastifyInstance) {
 
     if (!technician) return reply.code(404).send({ success: false, error: 'Técnico não encontrado' })
 
-    return reply.send({ success: true, data: technician, error: null })
+    const allOrders = await prisma.order.findMany({
+      where: { technicianId: id },
+      select: { status: true, rating: true, dispatchedAt: true, acceptedAt: true, startedAt: true, completedAt: true }
+    })
+    
+    let totalCompleted = 0
+    let sumRating = 0
+    let ratingCount = 0
+    let totalExecTimeMs = 0
+    let execTimeCount = 0
+
+    for (const o of allOrders) {
+      if (o.status === 'COMPLETED') totalCompleted++
+      if (o.rating) { sumRating += o.rating; ratingCount++ }
+      if (o.startedAt && o.completedAt) {
+        totalExecTimeMs += (o.completedAt.getTime() - o.startedAt.getTime())
+        execTimeCount++
+      }
+    }
+    
+    const analytics = {
+      totalJobs: allOrders.length,
+      completedJobs: totalCompleted,
+      averageRating: ratingCount > 0 ? (sumRating / ratingCount).toFixed(1) : '—',
+      averageExecutionTimeMs: execTimeCount > 0 ? totalExecTimeMs / execTimeCount : null
+    }
+
+    return reply.send({ success: true, data: { ...technician, analytics }, error: null })
   })
 
   // PATCH /technicians/:id — Atualiza dados do técnico (admin)

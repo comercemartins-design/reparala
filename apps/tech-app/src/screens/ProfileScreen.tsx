@@ -10,7 +10,7 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: stri
   HID: { label: 'Hidráulica',  icon: '💧', color: '#3B82F6' },
   CIV: { label: 'Civil',       icon: '🏗️', color: '#F59E0B' },
   SER: { label: 'Serralheria', icon: '🔩', color: '#6B7280' },
-  VID: { label: 'Vidraçaria',  icon: '🪟', color: '#06B6D4' },
+  ELE: { label: 'Elétrica',  icon: '⚡', color: '#EAB308' },
 }
 
 export default function ProfileScreen() {

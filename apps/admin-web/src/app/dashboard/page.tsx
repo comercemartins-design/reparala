@@ -149,7 +149,7 @@ export default function DashboardPage() {
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
-  HID: '💧', CIV: '🏗️', SER: '🔩', VID: '🪟',
+  HID: '💧', CIV: '🏗️', SER: '🔩', ELE: '⚡',
 }
 
 const COLOR_CLASSES: Record<string, string> = {

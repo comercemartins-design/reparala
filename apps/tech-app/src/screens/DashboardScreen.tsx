@@ -10,7 +10,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   HID: '💧 Hidráulica',
   CIV: '🏗️ Civil',
   SER: '🔩 Serralheria',
-  VID: '🪟 Vidraçaria',
+  ELE: '⚡ Elétrica',
 }
 
 const PRIORITY_COLORS: Record<string, string> = {

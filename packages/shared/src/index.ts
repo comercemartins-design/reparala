@@ -27,7 +27,7 @@ export const CATEGORIES = {
   HID: { label: 'Hidráulica', icon: '💧', color: '#3B82F6' },
   CIV: { label: 'Civil',      icon: '🏗️', color: '#F59E0B' },
   SER: { label: 'Serralheria',icon: '🔩', color: '#6B7280' },
-  VID: { label: 'Vidraçaria', icon: '🪟', color: '#06B6D4' },
+  ELE: { label: 'Elétrica', icon: '⚡', color: '#EAB308' },
 } as const
 
 export type CategoryCode = keyof typeof CATEGORIES
@@ -57,12 +57,12 @@ export const SUBCATEGORIES: Record<CategoryCode, Record<string, string>> = {
     CHA: 'Chaveiro',
     OUT: 'Outro',
   },
-  VID: {
-    JAN: 'Janela',
-    BOX: 'Box de Banheiro',
-    ESP: 'Espelho',
-    VIT: 'Vitrine/Fachada',
-    DIV: 'Divisória de Vidro',
+  ELE: {
+    QDA: 'Quadro/Disjuntor',
+    TOM: 'Tomada/Interruptor',
+    FIA: 'Fiação/Cabeamento',
+    ILU: 'Iluminação',
+    CUR: 'Curto-Circuito',
     OUT: 'Outro',
   },
 }

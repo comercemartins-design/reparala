@@ -10,7 +10,7 @@ const SPECIALTY_OPTIONS = [
   { key: 'HID', label: '💧 Hidráulica' },
   { key: 'CIV', label: '🏗️ Civil' },
   { key: 'SER', label: '🔩 Serralheria' },
-  { key: 'VID', label: '🪟 Vidraçaria' },
+  { key: 'ELE', label: '⚡ Elétrica' },
 ]
 
 function whatsappLink(phone: string) {
@@ -132,6 +132,37 @@ export default function TechnicianEditPage() {
           <p className="text-xs text-green-600 font-semibold mt-1">Hoje</p>
         </div>
       </div>
+
+      {/* Analytics Adicionais */}
+      {tech.analytics && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+          <h2 className="font-bold text-gray-800 text-base mb-4">Análise de Performance</h2>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="flex flex-col">
+              <span className="text-gray-500 font-semibold mb-1">Taxa de Conclusão</span>
+              <span className="font-bold text-gray-800 text-lg">
+                {tech.analytics.totalJobs > 0 
+                  ? `${Math.round((tech.analytics.completedJobs / tech.analytics.totalJobs) * 100)}%` 
+                  : 'N/A'}
+              </span>
+              <span className="text-xs text-gray-400">({tech.analytics.completedJobs} de {tech.analytics.totalJobs} chamados)</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-gray-500 font-semibold mb-1">Média de Execução</span>
+              <span className="font-bold text-gray-800 text-lg">
+                {tech.analytics.averageExecutionTimeMs 
+                  ? `${Math.floor(tech.analytics.averageExecutionTimeMs / 3600000)}h ${Math.floor((tech.analytics.averageExecutionTimeMs % 3600000) / 60000)}m` 
+                  : 'N/A'}
+              </span>
+              <span className="text-xs text-gray-400">Tempo médio em execução</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-gray-500 font-semibold mb-1">Avaliação Média Real</span>
+              <span className="font-bold text-amber-500 text-lg">⭐ {tech.analytics.averageRating}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp */}
       {phone && (

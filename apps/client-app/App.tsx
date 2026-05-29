@@ -39,7 +39,7 @@ function AppNavigator() {
         // Fluxo de autenticação
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Criar Conta' }} />
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
         </>
       ) : !user.client ? (
         // Perfil incompleto
@@ -47,7 +47,7 @@ function AppNavigator() {
       ) : (
         // App principal
         <>
-          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Repara Lá', headerLeft: () => null }} />
+          <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
           <Stack.Screen name="NewOrder" component={NewOrderScreen} options={{ title: 'Novo Chamado' }} />
           <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: 'Acompanhar Chamado' }} />
           <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Meus Chamados' }} />

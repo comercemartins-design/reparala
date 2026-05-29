@@ -72,10 +72,26 @@ export default function ActiveOrderScreen({ route, navigation }: any) {
   }
 
   async function takeCompletionPhoto() {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    })
+    const perm = await ImagePicker.requestCameraPermissionsAsync()
+    if (perm.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à câmera nas configurações do celular.')
+      return
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+    await processCompletionPhoto(result)
+  }
+
+  async function pickCompletionFromGallery() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (perm.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria nas configurações do celular.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
+    await processCompletionPhoto(result)
+  }
+
+  async function processCompletionPhoto(result: ImagePicker.ImagePickerResult) {
     if (!result.canceled) {
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
@@ -214,11 +230,29 @@ export default function ActiveOrderScreen({ route, navigation }: any) {
           })}
         </View>
 
-        {/* Descrição */}
-        {order.description ? (
+        {/* Descrição e Fotos do Problema */}
+        {order.description || (order.media && order.media.some((m: any) => m.phase === 'REPORT')) ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Descrição</Text>
-            <Text style={styles.description}>{order.description}</Text>
+            <Text style={styles.sectionTitle}>Detalhes do problema</Text>
+            {order.description ? (
+              <Text style={styles.description}>{order.description}</Text>
+            ) : null}
+            
+            {order.media && order.media.some((m: any) => m.phase === 'REPORT') && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.fieldLabel, { marginBottom: 8 }]}>Fotos enviadas pelo cliente:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                  {order.media.filter((m: any) => m.phase === 'REPORT').map((m: any) => (
+                    <TouchableOpacity key={m.id} onPress={() => Linking.openURL(m.url)}>
+                      <Image 
+                        source={{ uri: m.url }} 
+                        style={{ width: 100, height: 100, borderRadius: 8, marginRight: 10 }} 
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -232,15 +266,26 @@ export default function ActiveOrderScreen({ route, navigation }: any) {
             {completionPhoto ? (
               <View style={{ marginBottom: 16 }}>
                 <Image source={{ uri: completionPhoto }} style={styles.completionPhoto} />
-                <TouchableOpacity style={styles.retakeBtn} onPress={takeCompletionPhoto}>
-                  <Text style={styles.retakeBtnText}>Tirar outra foto</Text>
-                </TouchableOpacity>
+                <View style={styles.photoActions}>
+                  <TouchableOpacity style={styles.photoActionBtn} onPress={takeCompletionPhoto}>
+                    <Text style={styles.photoActionText}>📷 Câmera</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.photoActionBtn} onPress={pickCompletionFromGallery}>
+                    <Text style={styles.photoActionText}>🖼️ Galeria</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
-              <TouchableOpacity style={[styles.photoBtn, { marginBottom: 16 }]} onPress={takeCompletionPhoto}>
-                <Text style={styles.photoBtnIcon}>📷</Text>
-                <Text style={styles.photoBtnText}>Tirar foto do serviço</Text>
-              </TouchableOpacity>
+              <View style={[styles.photoPickerRow, { marginBottom: 16 }]}>
+                <TouchableOpacity style={[styles.photoBtn, { flex: 1 }]} onPress={takeCompletionPhoto}>
+                  <Text style={styles.photoBtnIcon}>📷</Text>
+                  <Text style={styles.photoBtnText}>Câmera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.photoBtn, { flex: 1 }]} onPress={pickCompletionFromGallery}>
+                  <Text style={styles.photoBtnIcon}>🖼️</Text>
+                  <Text style={styles.photoBtnText}>Galeria</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             <Text style={styles.fieldLabel}>Observações (opcional)</Text>
@@ -347,15 +392,20 @@ const styles = StyleSheet.create({
     padding: 12, fontSize: 14, backgroundColor: '#FAFAFA',
     minHeight: 80, color: '#374151',
   },
+  photoPickerRow: { flexDirection: 'row', gap: 10 },
   photoBtn: {
     borderWidth: 2, borderColor: '#93C5FD', borderStyle: 'dashed',
-    borderRadius: 12, padding: 24, alignItems: 'center', backgroundColor: '#EFF6FF',
+    borderRadius: 12, padding: 20, alignItems: 'center', backgroundColor: '#EFF6FF',
   },
-  photoBtnIcon: { fontSize: 32 },
-  photoBtnText: { fontSize: 14, color: '#1D4ED8', fontWeight: '600', marginTop: 6 },
+  photoBtnIcon: { fontSize: 28 },
+  photoBtnText: { fontSize: 13, color: '#1D4ED8', fontWeight: '600', marginTop: 6 },
   completionPhoto: { width: '100%', height: 200, borderRadius: 10 },
-  retakeBtn: { alignItems: 'center', marginTop: 10 },
-  retakeBtnText: { fontSize: 13, color: '#1D4ED8' },
+  photoActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  photoActionBtn: {
+    flex: 1, borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10,
+    padding: 10, alignItems: 'center', backgroundColor: '#EFF6FF',
+  },
+  photoActionText: { fontSize: 13, color: '#1D4ED8', fontWeight: '600' },
   actionContainer: {
     backgroundColor: '#fff', padding: 16, paddingBottom: 32,
     borderTopWidth: 1, borderTopColor: '#e5e7eb',

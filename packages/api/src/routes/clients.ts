@@ -36,6 +36,51 @@ export async function clientRoutes(app: FastifyInstance) {
   return reply.code(201).send({ success: true, data: client, error: null })
 })
 
+  // POST /clients — Admin cadastra um novo cliente
+  app.post('/', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
+
+    const { name, email, password, phone, type, addressLine, city, state, zipCode } = request.body as any
+
+    // 1. Cria usuário no Supabase
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data: authData, error: authError } = await sb.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true
+    })
+    if (authError || !authData.user) {
+      return reply.code(400).send({ success: false, error: authError?.message || 'Erro ao criar auth' })
+    }
+
+    // 2. Cria usuário no Prisma
+    const user = await prisma.user.create({
+      data: {
+        supabaseId: authData.user.id,
+        role: 'CLIENT',
+        name,
+        phone,
+      }
+    })
+
+    // 3. Cria perfil de cliente
+    const client = await prisma.client.create({
+      data: {
+        userId: user.id,
+        type: type || 'RESIDENCE',
+        addressLine: addressLine || '',
+        city: city || '',
+        state: state || 'SP',
+        zipCode: zipCode || '',
+      },
+      include: { user: true }
+    })
+
+    return reply.code(201).send({ success: true, data: client, error: null })
+  })
+
   // GET /clients — Lista clientes (admin)
   app.get('/', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
@@ -144,6 +189,24 @@ export async function clientRoutes(app: FastifyInstance) {
 
     if (!client) return reply.code(404).send({ success: false, error: 'Cliente não encontrado' })
 
-    return reply.send({ success: true, data: client, error: null })
+    // Busca o email no Supabase
+    let email = null;
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      const { data } = await sb.auth.admin.getUserById(client.user.supabaseId)
+      if (data?.user) {
+        email = data.user.email
+      }
+    } catch (err) {
+      console.error('Erro ao buscar email no Supabase:', err)
+    }
+
+    const responseData = {
+      ...client,
+      user: { ...client.user, email }
+    }
+
+    return reply.send({ success: true, data: responseData, error: null })
   })
 }

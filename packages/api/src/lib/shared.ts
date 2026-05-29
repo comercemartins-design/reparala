@@ -1,4 +1,4 @@
-export type CategoryCode = 'HID' | 'CIV' | 'SER' | 'VID'
+export type CategoryCode = 'HID' | 'CIV' | 'SER' | 'ELE'
 export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
 
 export function generateProblemCode(

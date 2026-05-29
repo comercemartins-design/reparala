@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { sendPushNotification } from '../services/notifications'
 
 const createOrderSchema = z.object({
-  category: z.enum(['HID', 'CIV', 'SER', 'VID']),
+  category: z.enum(['HID', 'CIV', 'SER', 'ELE']),
   subcategory: z.string().min(2).max(10),
   description: z.string().optional(),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'CRITICAL']).default('NORMAL'),
@@ -64,7 +64,7 @@ export async function orderRoutes(app: FastifyInstance) {
   // GET /orders — Lista chamados (filtros por status, clientId, techId)
   app.get('/', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
-    const { status, page = '1', limit = '20' } = request.query as any
+    const { status, search, page = '1', limit = '20' } = request.query as any
 
     const where: any = {}
 
@@ -86,6 +86,9 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     if (status) where.status = status
+    if (search) {
+      where.problemCode = { contains: search, mode: 'insensitive' }
+    }
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
@@ -169,15 +172,16 @@ export async function orderRoutes(app: FastifyInstance) {
 
   // PATCH /orders/:id/accept — Técnico aceita chamado
   app.patch('/:id/accept', { preHandler: [app.authenticate] }, async (request, reply) => {
-    const payload = request.user as any
     const { id } = request.params as { id: string }
+    const payload = request.user as any
+    if (payload.role !== 'TECHNICIAN') return reply.code(403).send({ success: false, error: 'Apenas técnicos' })
 
     const tech = await prisma.technician.findUnique({ where: { userId: payload.userId } })
-    if (!tech) return reply.code(403).send({ success: false, error: 'Perfil de técnico não encontrado' })
+    if (!tech) return reply.code(404).send({ success: false, error: 'Técnico não encontrado' })
 
     const order = await prisma.order.update({
       where: { id },
-      data: { status: 'ACCEPTED', acceptedAt: new Date() },
+      data: { status: 'ACCEPTED', acceptedAt: new Date(), technicianId: tech.id },
       include: { client: { include: { user: true } } },
     })
 
@@ -255,8 +259,18 @@ export async function orderRoutes(app: FastifyInstance) {
       IN_PROGRESS: '🔧 Serviço iniciado',
       AWAITING_APPROVAL: '✅ Serviço concluído — avalie agora',
     }
-    if (notifyOn[status] && order.client.user.pushToken) {
-      await sendPushNotification(order.client.user.pushToken, notifyOn[status], order.problemCode, { orderId: id })
+    const notifyBody: Record<string, string> = {
+      EN_ROUTE: `O técnico ${order.technician?.user?.name || ''} está a caminho para o chamado ${order.problemCode}.`,
+      IN_PROGRESS: `O serviço do chamado ${order.problemCode} acaba de ser iniciado.`,
+      AWAITING_APPROVAL: `Você tem 24h para avaliar o serviço ${order.problemCode}. Após isso, será fechado automaticamente.`,
+    }
+    if (notifyOn[status] && order.client?.user?.pushToken) {
+      await sendPushNotification(
+        order.client.user.pushToken, 
+        notifyOn[status], 
+        notifyBody[status], 
+        { orderId: id }
+      )
     }
 
     return reply.send({ success: true, data: order, error: null })
@@ -300,4 +314,39 @@ export async function orderRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: order, error: null })
   })
-}
+
+  // POST /orders/cron/auto-close — Endpoint para cron (auto fechamento 24h)
+  app.post('/cron/auto-close', async (request, reply) => {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  
+      const pendingOrders = await prisma.order.findMany({
+        where: {
+          status: 'AWAITING_APPROVAL',
+          updatedAt: { lt: yesterday },
+        },
+      })
+  
+      if (pendingOrders.length === 0) {
+        return reply.send({ success: true, processed: 0 })
+      }
+  
+      for (const order of pendingOrders) {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { status: 'COMPLETED', rating: 5, ratingComment: 'Avaliação automática após 24h' },
+        })
+  
+        // Atualiza média de rating do técnico
+        if (order.technicianId) {
+          const ratings = await prisma.order.findMany({
+            where: { technicianId: order.technicianId, rating: { not: null } },
+            select: { rating: true },
+          })
+          const avg = ratings.reduce((s, o) => s + o.rating!, 0) / ratings.length
+          await prisma.technician.update({ where: { id: order.technicianId }, data: { rating: avg } })
+        }
+      }
+  
+      return reply.send({ success: true, processed: pendingOrders.length })
+    })
+  }

@@ -17,7 +17,7 @@ const STATUS_FLOW = [
 ]
 
 const CATEGORY_LABELS: Record<string, string> = {
-  HID: '💧 Hidráulica', CIV: '🏗️ Civil', SER: '🔩 Serralheria', VID: '🪟 Vidraçaria',
+  HID: '💧 Hidráulica', CIV: '🏗️ Civil', SER: '🔩 Serralheria', ELE: '⚡ Elétrica',
 }
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
@@ -70,6 +70,17 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function handleForceComplete() {
+    if (!window.confirm('Tem certeza que deseja forçar a conclusão deste chamado manualmente?')) return
+    try {
+      await api.patch(`/orders/${id}/status`, { status: 'COMPLETED' })
+      setAssignSuccess('Chamado concluído manualmente com sucesso! ✅')
+      await loadData()
+    } catch (err: any) {
+      alert(err.message || 'Erro ao concluir chamado')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -111,15 +122,31 @@ export default function OrderDetailPage() {
 
           {/* Timeline */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-bold text-gray-800 mb-4">Progresso</h2>
-            <div className="flex items-center gap-0 overflow-x-auto pb-2">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-bold text-gray-800">Progresso</h2>
+              {order.completedAt && (
+                <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-md border border-green-200">
+                  ⏱ Duração: {Math.floor((new Date(order.completedAt).getTime() - new Date(order.createdAt).getTime()) / 3600000)}h {Math.floor(((new Date(order.completedAt).getTime() - new Date(order.createdAt).getTime()) % 3600000) / 60000)}m
+                </span>
+              )}
+            </div>
+            <div className="flex items-start gap-0 overflow-x-auto pb-2">
               {STATUS_FLOW.map((step, i) => {
-                const done = i < currentIndex
+                const done = i < currentIndex || order.status === step.key || order.status === 'COMPLETED'
                 const current = i === currentIndex
+
+                let timestamp: string | null = null
+                if (step.key === 'OPEN' && order.createdAt) timestamp = new Date(order.createdAt).toLocaleString('pt-BR')
+                if (step.key === 'DISPATCHED' && order.dispatchedAt) timestamp = new Date(order.dispatchedAt).toLocaleString('pt-BR')
+                if (step.key === 'ACCEPTED' && order.acceptedAt) timestamp = new Date(order.acceptedAt).toLocaleString('pt-BR')
+                if (step.key === 'IN_PROGRESS' && order.startedAt) timestamp = new Date(order.startedAt).toLocaleString('pt-BR')
+                if (step.key === 'AWAITING_APPROVAL' && order.completedAt) timestamp = new Date(order.completedAt).toLocaleString('pt-BR')
+                if (step.key === 'COMPLETED' && order.status === 'COMPLETED') timestamp = new Date(order.updatedAt).toLocaleString('pt-BR')
+
                 return (
-                  <div key={step.key} className="flex items-center">
+                  <div key={step.key} className="flex items-start">
                     <div className="flex flex-col items-center min-w-[80px]">
-                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold mt-2
                         ${done ? 'bg-green-500 border-green-500 text-white' :
                           current ? 'bg-brand-800 border-brand-800 text-white' :
                           'bg-white border-gray-300 text-gray-400'}`}>
@@ -129,9 +156,14 @@ export default function OrderDetailPage() {
                         ${current ? 'font-bold text-brand-800' : done ? 'text-green-600' : 'text-gray-400'}`}>
                         {step.label}
                       </p>
+                      {timestamp && (
+                        <p className="text-[9px] text-center mt-1 text-gray-500 whitespace-pre-line max-w-[72px]">
+                          {timestamp.replace(', ', '\n')}
+                        </p>
+                      )}
                     </div>
                     {i < STATUS_FLOW.length - 1 && (
-                      <div className={`h-0.5 w-6 flex-shrink-0 ${done ? 'bg-green-500' : 'bg-gray-200'}`} />
+                      <div className={`h-0.5 w-6 flex-shrink-0 mt-6 ${done ? 'bg-green-500' : 'bg-gray-200'}`} />
                     )}
                   </div>
                 )
@@ -202,21 +234,43 @@ export default function OrderDetailPage() {
           {/* Fotos */}
           {order.media?.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-800 mb-4">Fotos ({order.media.length})</h2>
-              <div className="flex gap-3 flex-wrap">
-                {order.media.map((m: any) => (
-                  <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={m.url}
-                      alt={m.phase}
-                      className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 transition"
-                    />
-                    <p className="text-[10px] text-gray-400 text-center mt-1">
-                      {m.phase === 'REPORT' ? 'Antes' : 'Depois'}
-                    </p>
-                  </a>
-                ))}
-              </div>
+              <h2 className="font-bold text-gray-800 mb-4">Fotos do Serviço</h2>
+              
+              {/* Fotos do Problema */}
+              {order.media.some((m: any) => m.phase === 'REPORT') && (
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-600 mb-2">📸 Fotos do Problema (Cliente)</p>
+                  <div className="flex gap-3 flex-wrap">
+                    {order.media.filter((m: any) => m.phase === 'REPORT').map((m: any) => (
+                      <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={m.url}
+                          alt="Problema"
+                          className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 transition"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fotos da Conclusão */}
+              {order.media.some((m: any) => m.phase === 'COMPLETION') && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-sm font-semibold text-gray-600 mb-2 mt-2">✅ Fotos da Conclusão (Técnico)</p>
+                  <div className="flex gap-3 flex-wrap">
+                    {order.media.filter((m: any) => m.phase === 'COMPLETION').map((m: any) => (
+                      <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={m.url}
+                          alt="Conclusão"
+                          className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 transition"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -304,6 +358,22 @@ export default function OrderDetailPage() {
                   </button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Ações Administrativas */}
+          {['EN_ROUTE', 'IN_PROGRESS', 'AWAITING_APPROVAL'].includes(order.status) && (
+            <div className="bg-white rounded-2xl border border-red-100 p-6">
+              <h2 className="font-bold text-red-800 mb-2">Ações Administrativas</h2>
+              <p className="text-xs text-red-600 mb-4">
+                Use apenas se o técnico esqueceu de concluir o chamado pelo aplicativo.
+              </p>
+              <button
+                onClick={handleForceComplete}
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg transition"
+              >
+                ⚠️ Forçar Conclusão Manual
+              </button>
             </div>
           )}
 

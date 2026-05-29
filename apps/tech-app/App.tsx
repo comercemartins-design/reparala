@@ -22,6 +22,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 })
 
@@ -98,8 +100,8 @@ function AppNavigator() {
     })
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current)
-      Notifications.removeNotificationSubscription(responseListener.current)
+      notificationListener.current?.remove()
+      responseListener.current?.remove()
     }
   }, [user])
 

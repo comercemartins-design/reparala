@@ -32,9 +32,17 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-        <p className="text-gray-500 text-sm mt-0.5">{clients.length} cliente(s) cadastrado(s)</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{clients.length} cliente(s) cadastrado(s)</p>
+        </div>
+        <Link
+          href="/dashboard/clients/new"
+          className="bg-brand-800 hover:bg-brand-700 text-white font-semibold py-2 px-4 rounded-xl transition flex items-center gap-2 text-sm"
+        >
+          <span>➕</span> Cadastrar Cliente
+        </Link>
       </div>
 
       {/* Filtros */}

@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { StatusBadge } from '@/components/Badge'
 
 const CLIENT_TYPES = [
   { key: 'RESIDENCE', label: '🏠 Residência' },
@@ -12,32 +10,16 @@ const CLIENT_TYPES = [
   { key: 'CONDO',     label: '🏗️ Condomínio' },
 ]
 
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Aguardando', DISPATCHED: 'Despachado', ACCEPTED: 'Aceito',
-  EN_ROUTE: 'A caminho', IN_PROGRESS: 'Em execução',
-  AWAITING_APPROVAL: 'Aguard. aprovação', COMPLETED: 'Concluído',
-  CANCELLED: 'Cancelado', REJECTED: 'Recusado',
-}
-
-function whatsappLink(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  const number = digits.startsWith('55') ? digits : `55${digits}`
-  return `https://wa.me/${number}`
-}
-
-export default function ClientEditPage() {
-  const { id } = useParams<{ id: string }>()
+export default function NewClientPage() {
   const router = useRouter()
 
-  const [client, setClient] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
 
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
-  const [newPassword, setNewPassword] = useState('')
   const [type, setType] = useState('RESIDENCE')
   const [addressLine, setAddressLine] = useState('')
   const [city, setCity] = useState('')
@@ -47,32 +29,6 @@ export default function ClientEditPage() {
   const [condoBlock, setCondoBlock] = useState('')
   const [condoFloor, setCondoFloor] = useState('')
   const [condoUnit, setCondoUnit] = useState('')
-
-  useEffect(() => { loadClient() }, [id])
-
-  async function loadClient() {
-    setLoading(true)
-    try {
-      const res = await api.get<any>(`/clients/${id}`)
-      const c = res.data
-      setClient(c)
-      setName(c.user?.name || '')
-      setPhone(c.user?.phone || '')
-      setType(c.type || 'RESIDENCE')
-      setAddressLine(c.addressLine || '')
-      setCity(c.city || '')
-      setState(c.state || '')
-      setZipCode(c.zipCode || '')
-      setCondoName(c.condoName || '')
-      setCondoBlock(c.condoBlock || '')
-      setCondoFloor(c.condoFloor != null ? String(c.condoFloor) : '')
-      setCondoUnit(c.condoUnit || '')
-    } catch {
-      setError('Erro ao carregar cliente')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function fetchCep(cep: string) {
     const clean = cep.replace(/\D/g, '')
@@ -90,15 +46,18 @@ export default function ClientEditPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError('Nome é obrigatório'); return }
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError('Nome, email e senha são obrigatórios')
+      return
+    }
     setError('')
-    setSuccess('')
     setSaving(true)
     try {
-      await api.patch(`/clients/${id}`, {
+      await api.post(`/clients`, {
         name,
+        email,
+        password,
         phone: phone || undefined,
-        ...(newPassword ? { password: newPassword } : {}),
         type,
         addressLine,
         city,
@@ -109,34 +68,14 @@ export default function ClientEditPage() {
           condoBlock: condoBlock || undefined,
           condoFloor: condoFloor ? Number(condoFloor) : undefined,
           condoUnit: condoUnit || undefined,
-        } : {
-          condoName: null,
-          condoBlock: null,
-          condoFloor: null,
-          condoUnit: null,
-        }),
+        } : {}),
       })
-      setSuccess('Dados salvos com sucesso! ✅')
-      setNewPassword('')
-      await loadClient()
+      router.push('/dashboard/clients')
     } catch (err: any) {
-      setError(err.message || 'Erro ao salvar')
+      setError(err.response?.data?.error || err.message || 'Erro ao cadastrar')
     } finally {
       setSaving(false)
     }
-  }
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-64"><p className="text-gray-400">Carregando cliente...</p></div>
-  }
-
-  if (!client) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-gray-500">Cliente não encontrado.</p>
-        <button onClick={() => router.back()} className="text-brand-600 text-sm mt-2">← Voltar</button>
-      </div>
-    )
   }
 
   return (
@@ -145,42 +84,33 @@ export default function ClientEditPage() {
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">Editar cliente</h1>
-          <p className="text-gray-500 text-sm">{client._count?.orders ?? 0} chamado(s) no histórico</p>
+          <h1 className="text-xl font-bold text-gray-900">Cadastrar novo cliente</h1>
         </div>
-        <StatusBadge status={client.type} />
       </div>
-
-      {/* WhatsApp */}
-      {phone && (
-        <a
-          href={whatsappLink(phone)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-5 py-4 mb-6 hover:bg-green-100 transition"
-        >
-          <span className="text-2xl">💬</span>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-green-800">Abrir conversa no WhatsApp</p>
-            <p className="text-xs text-green-600">{phone}</p>
-          </div>
-          <span className="text-green-600 text-sm font-semibold">Abrir →</span>
-        </a>
-      )}
 
       {/* Formulário */}
       <form onSubmit={handleSave} className="space-y-5">
-        {/* Dados pessoais */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-          <h2 className="font-bold text-gray-800">Dados pessoais</h2>
-
+          <h2 className="font-bold text-gray-800">Acesso e Dados Pessoais</h2>
           {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">⚠️ {error}</div>}
-          {success && <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">{success}</div>}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome completo</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome completo *</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} required
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email de acesso *</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="cliente@email.com"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Senha provisória *</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+            {password && password.length < 6 && <p className="text-xs text-red-500 mt-1">Mínimo de 6 caracteres</p>}
           </div>
 
           <div>
@@ -188,28 +118,8 @@ export default function ClientEditPage() {
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999"
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
           </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email cadastrado</label>
-            <input type="text" value={client?.user?.email || 'Email indisponível'} readOnly
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed" />
-          </div>
-
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-4">
-            <h3 className="text-red-700 font-bold mb-2 flex items-center gap-2">⚠️ ATENÇÃO: ALTERAÇÃO DE DADOS SENSÍVEIS</h3>
-            <p className="text-red-600 text-sm mb-4">
-              A alteração de senha afetará o acesso do cliente ao aplicativo imediatamente. Tenha certeza de que o cliente solicitou essa mudança.
-            </p>
-            <label className="block text-sm font-semibold text-red-800 mb-1.5">
-              Nova senha <span className="font-normal">(deixe em branco para não alterar)</span>
-            </label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••"
-              className="w-full border border-red-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white" />
-            {newPassword && newPassword.length < 6 && <p className="text-xs text-red-500 mt-1">Mínimo de 6 caracteres</p>}
-          </div>
         </div>
 
-        {/* Tipo de local */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
           <h2 className="font-bold text-gray-800">Endereço</h2>
 
@@ -255,7 +165,6 @@ export default function ClientEditPage() {
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
           </div>
 
-          {/* Campos de condomínio */}
           {type === 'CONDO' && (
             <div className="pt-3 border-t border-gray-100 space-y-4">
               <h3 className="text-sm font-bold text-gray-700">🏗️ Dados do Condomínio</h3>
@@ -286,30 +195,11 @@ export default function ClientEditPage() {
           )}
         </div>
 
-        <button type="submit" disabled={saving}
+        <button type="submit" disabled={saving || (password.length > 0 && password.length < 6)}
           className="w-full bg-brand-800 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition disabled:opacity-60">
-          {saving ? 'Salvando...' : 'Salvar alterações'}
+          {saving ? 'Cadastrando...' : 'Cadastrar cliente'}
         </button>
       </form>
-
-      {/* Histórico de chamados */}
-      {client.orders?.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mt-5">
-          <h2 className="font-bold text-gray-800 mb-4">Últimos chamados</h2>
-          <div className="space-y-2">
-            {client.orders.map((order: any) => (
-              <Link key={order.id} href={`/dashboard/orders/${order.id}`}
-                className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition border border-gray-50">
-                <div>
-                  <p className="text-sm font-semibold text-gray-800 font-mono">{order.problemCode}</p>
-                  <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</p>
-                </div>
-                <StatusBadge status={order.status} />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

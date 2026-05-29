@@ -11,7 +11,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
-  HID: '💧', CIV: '🏗️', SER: '🔩', VID: '🪟',
+  HID: '💧', CIV: '🏗️', SER: '🔩', ELE: '⚡',
 }
 
 export default function HistoryScreen({ navigation }: any) {

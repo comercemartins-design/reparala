@@ -18,11 +18,11 @@ const STATUSES = [
 ]
 
 const CATEGORY_ICONS: Record<string, string> = {
-  HID: '💧', CIV: '🏗️', SER: '🔩', VID: '🪟',
+  HID: '💧', CIV: '🏗️', SER: '🔩', ELE: '⚡',
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  HID: 'Hidráulica', CIV: 'Civil', SER: 'Serralheria', VID: 'Vidraçaria',
+  HID: 'Hidráulica', CIV: 'Civil', SER: 'Serralheria', ELE: 'Elétrica',
 }
 
 export default function OrdersPage() {
@@ -30,17 +30,22 @@ export default function OrdersPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    loadOrders()
-  }, [statusFilter, page])
+    const delayDebounceFn = setTimeout(() => {
+      loadOrders()
+    }, 400)
+    return () => clearTimeout(delayDebounceFn)
+  }, [statusFilter, page, searchQuery])
 
   async function loadOrders() {
     setLoading(true)
     try {
       const params = new URLSearchParams({ limit: '20', page: String(page) })
       if (statusFilter) params.set('status', statusFilter)
+      if (searchQuery) params.set('search', searchQuery)
       const res = await api.get<any>(`/orders?${params}`)
       setOrders(res.data.orders || [])
       setTotal(res.data.total || 0)
@@ -59,21 +64,33 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Filtros de status */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {STATUSES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => { setStatusFilter(s.value); setPage(1) }}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-              statusFilter === s.value
-                ? 'bg-brand-800 text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-500'
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
+      {/* Filtros e Busca */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex gap-2 flex-wrap">
+          {STATUSES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => { setStatusFilter(s.value); setPage(1) }}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                statusFilter === s.value
+                  ? 'bg-brand-800 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-500'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full md:w-64">
+          <input 
+            type="text" 
+            placeholder="Buscar por código..." 
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+        </div>
       </div>
 
       {/* Tabela */}

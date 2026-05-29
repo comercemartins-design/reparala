@@ -37,11 +37,12 @@ const SUBCATEGORIES: Record<string, { key: string; label: string }[]> = {
     { key: 'COR', label: 'Corrimão' },
     { key: 'OUT', label: 'Outro' },
   ],
-  VID: [
-    { key: 'JAN', label: 'Janela' },
-    { key: 'BOX', label: 'Box de banheiro' },
-    { key: 'ESP', label: 'Espelho' },
-    { key: 'VIT', label: 'Vitrine' },
+  ELE: [
+    { key: 'QDA', label: 'Quadro/Disjuntor' },
+    { key: 'TOM', label: 'Tomada/Interruptor' },
+    { key: 'FIA', label: 'Fiação/Cabeamento' },
+    { key: 'ILU', label: 'Iluminação' },
+    { key: 'CUR', label: 'Curto-Circuito' },
     { key: 'OUT', label: 'Outro' },
   ],
 }
@@ -68,18 +69,41 @@ export default function NewOrderScreen({ route, navigation }: any) {
       Alert.alert('Limite', 'Máximo de 3 fotos por chamado')
       return
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    })
+    Alert.alert('Adicionar foto', 'Como deseja adicionar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: '📷 Tirar foto', onPress: pickFromCamera },
+      { text: '🖼️ Da galeria', onPress: pickFromGallery },
+    ])
+  }
+
+  async function pickFromCamera() {
+    const perm = await ImagePicker.requestCameraPermissionsAsync()
+    if (perm.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à câmera nas configurações do celular.')
+      return
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+    await processPickedPhoto(result)
+  }
+
+  async function pickFromGallery() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (perm.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria nas configurações do celular.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
+    await processPickedPhoto(result)
+  }
+
+  async function processPickedPhoto(result: ImagePicker.ImagePickerResult) {
     if (!result.canceled) {
-      // Comprime antes de fazer upload
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
         [{ resize: { width: 800 } }],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
       )
-      setPhotos([...photos, compressed.uri])
+      setPhotos((prev) => [...prev, compressed.uri])
     }
   }
 

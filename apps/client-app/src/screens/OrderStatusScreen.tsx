@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator,
-  RefreshControl, FlatList,
+  RefreshControl, FlatList, TextInput,
 } from 'react-native'
 import api from '../services/api'
 
@@ -51,7 +51,8 @@ export function OrderStatusScreen({ route, navigation }: any) {
   async function handleRate(stars: number) {
     setRating(stars)
     try {
-      await api.post(`/orders/${orderId}/rate`, { rating: stars })
+      const comment = order?.tempComment || undefined;
+      await api.post(`/orders/${orderId}/rate`, { rating: stars, comment })
       setRated(true)
       Alert.alert('Obrigado! 🌟', 'Sua avaliação foi registrada.')
     } catch {
@@ -143,11 +144,34 @@ export function OrderStatusScreen({ route, navigation }: any) {
           <Text style={styles.ratingSubtitle}>Toque nas estrelas para avaliar</Text>
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity key={star} onPress={() => handleRate(star)}>
+              <TouchableOpacity key={star} onPress={() => setRating(star)}>
                 <Text style={[styles.star, rating >= star && styles.starActive]}>★</Text>
               </TouchableOpacity>
             ))}
           </View>
+          
+          {rating > 0 && (
+            <View style={{ width: '100%', marginTop: 16 }}>
+              <Text style={{ fontSize: 13, color: '#333', marginBottom: 8, fontWeight: '600' }}>
+                Deixe uma observação (opcional)
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+                  padding: 12, minHeight: 80, backgroundColor: '#fafafa', textAlignVertical: 'top'
+                }}
+                placeholder="Como foi o serviço?"
+                multiline
+                onChangeText={(text) => setOrder({ ...order, tempComment: text })}
+              />
+              <TouchableOpacity 
+                style={{ backgroundColor: '#FF5A1F', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 12 }}
+                onPress={() => handleRate(rating)}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Enviar Avaliação</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 

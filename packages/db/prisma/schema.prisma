@@ -109,7 +109,7 @@ model Technician {
 
   status       TechStatus @default(OFFLINE)
   city         String                        // Região de atuação (texto simples no MVP)
-  specialties  String[]                      // ["HID", "CIV", "SER", "VID"]
+  specialties  String[]                      // ["HID", "CIV", "SER", "ELE"]
   rating       Float      @default(5.0)
   jobsTotal    Int        @default(0) @map("jobs_total")
   jobsToday    Int        @default(0) @map("jobs_today")

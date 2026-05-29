@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/orders',       icon: '📋', label: 'Chamados' },
   { href: '/dashboard/technicians',  icon: '👷', label: 'Técnicos' },
   { href: '/dashboard/clients',      icon: '👥', label: 'Clientes' },
+  { href: '/dashboard/admins',       icon: '👑', label: 'Admins' },
 ]
 
 export default function Sidebar() {
