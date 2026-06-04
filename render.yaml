@@ -14,7 +14,7 @@ services:
       - key: DATABASE_URL
         value: "postgresql://postgres.lryuojvdccnfnkscridq:ngldQ04BEMSPbv0H@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
       - key: DIRECT_URL
-        value: "postgresql://postgres.lryuojvdccnfnkscridq:ngldQ04BEMSPbv0H@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+        value: "postgresql://postgres:ngldQ04BEMSPbv0H@db.lryuojvdccnfnkscridq.supabase.co:5432/postgres?sslmode=require"
       - key: SUPABASE_URL
         value: "https://lryuojvdccnfnkscridq.supabase.co"
       - key: SUPABASE_ANON_KEY

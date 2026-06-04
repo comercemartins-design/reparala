@@ -14,6 +14,11 @@ export async function setupRoutes(app: FastifyInstance) {
       return reply.code(400).send({ success: false, error: 'supabaseId obrigatório' })
     }
 
+    // Garante que a coluna permissions existe (db push pode não ter rodado)
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT[] DEFAULT '{}'`
+    )
+
     const user = await prisma.user.upsert({
       where: { supabaseId },
       update: { role: 'ADMIN', name: name || 'Admin', permissions: [] },
