@@ -16,26 +16,20 @@ const loginSchema = z.object({
 })
 
 async function supabaseSignIn(email: string, password: string) {
-  const url = `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`
-  const anonKey = process.env.SUPABASE_ANON_KEY ?? ''
-  const keyDebug = `len=${anonKey.length} start=${anonKey.slice(0, 20)} end=${anonKey.slice(-10)}`
-  let rawText = ''
-  try {
-    const res = await fetch(url, {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
       method: 'POST',
       headers: {
-        apikey: anonKey,
+        apikey: process.env.SUPABASE_ANON_KEY!,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ email, password }),
-    })
-    rawText = await res.text()
-    const json = JSON.parse(rawText) as any
-    if (!res.ok) return { user: null, error: `HTTP ${res.status}: ${rawText.slice(0, 300)} | key: ${keyDebug}` }
-    return { user: json.user as { id: string }, error: null }
-  } catch (e: any) {
-    return { user: null, error: `fetch exception: ${e?.message} | raw: ${rawText.slice(0, 200)} | key: ${keyDebug}` }
-  }
+    }
+  )
+  const json = await res.json() as any
+  if (!res.ok) return { user: null, error: json.error_description || json.msg || 'Email ou senha inválidos' }
+  return { user: json.user as { id: string }, error: null }
 }
 
 async function supabaseCreateUser(email: string, password: string, metadata: Record<string, string>) {
@@ -101,7 +95,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { user: authUser, error } = await supabaseSignIn(body.email, body.password)
 
     if (error || !authUser) {
-      return reply.code(401).send({ success: false, error, debug_sbError: error })
+      return reply.code(401).send({ success: false, error: 'Email ou senha inválidos' })
     }
 
     const user = await prisma.user.findUnique({
