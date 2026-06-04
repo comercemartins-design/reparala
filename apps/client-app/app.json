@@ -51,7 +51,7 @@
     ],
     "scheme": "reparala",
     "extra": {
-      "apiUrl": "https://reparalaapi-production.up.railway.app",
+      "apiUrl": "https://reparala-api.onrender.com",
       "supabaseUrl": "https://lryuojvdccnfnkscridq.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ",
       "eas": {
