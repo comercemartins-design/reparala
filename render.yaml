@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: reparala-api
+    runtime: node
+    rootDir: packages/api
+    buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma
+    startCommand: npx tsx src/server.ts
+    plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: API_PORT
+        value: "10000"
+      - key: DATABASE_URL
+        value: postgresql://postgres.lryuojvdccnfnkscridq:ngldQ04BEMSPbv0H@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
+      - key: DIRECT_URL
+        value: postgresql://postgres.lryuojvdccnfnkscridq:ngldQ04BEMSPbv0H@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+      - key: SUPABASE_URL
+        value: https://lryuojvdccnfnkscridq.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzE0MjMsImV4cCI6MjA5MzI0NzQyM30.ZdSCcsE7BA8BgAPVFnSjyQyGCrnktuvpN1Q5gR1nyMQ
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyeXVvanZkY2NuZm5rc2NyaWRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzY3MTQyMywiZXhwIjoyMDkzMjQ3NDIzfQ.YQfBDXUxjk2iE7nth7YZkBN_NLYES1wVoUyvS03O4KA
+      - key: JWT_SECRET
+        value: I1qukzY2PcG8nlV7xE2ceaJHEJdg9QIJuOMjZ5OlixZmvJjxoA5Tw6BXFkU4wkCI
