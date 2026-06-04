@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://reparala-api.onrender.com'
+const API_URL = 'https://reparala-api.onrender.com'
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
