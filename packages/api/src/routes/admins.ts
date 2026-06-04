@@ -3,103 +3,101 @@ import { prisma } from '../lib/prisma'
 
 const ALL_PERMISSIONS = ['MANAGE_ORDERS', 'MANAGE_CLIENTS', 'MANAGE_TECHNICIANS', 'MANAGE_ADMINS']
 
+function sbAdminUrl(path: string) {
+  return `${process.env.SUPABASE_URL}/auth/v1/admin/${path}`
+}
+function sbAdminHeaders() {
+  return {
+    apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+    'Content-Type': 'application/json',
+  }
+}
+
 export async function adminRoutes(app: FastifyInstance) {
-  // GET /admins — Lista administradores
+  // GET /admins
   app.get('/', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
 
     const { search } = request.query as any
+    const where: any = { role: 'ADMIN' }
+    if (search) where.name = { contains: search, mode: 'insensitive' }
 
+    const usersFull = await prisma.user.findMany({
+      where,
+      select: { id: true, name: true, phone: true, permissions: true, createdAt: true, supabaseId: true },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // Tenta buscar emails do Supabase via HTTP direto
+    let sbUsers: any[] = []
     try {
-      const where: any = { role: 'ADMIN' }
-      if (search) where.name = { contains: search, mode: 'insensitive' }
+      const res = await fetch(sbAdminUrl('users?per_page=1000'), { headers: sbAdminHeaders() })
+      if (res.ok) {
+        const json = await res.json() as any
+        sbUsers = json.users || []
+      }
+    } catch {}
 
-      const usersFull = await prisma.user.findMany({
-        where,
-        select: { id: true, name: true, phone: true, permissions: true, createdAt: true, supabaseId: true },
-        orderBy: { createdAt: 'desc' },
-      })
+    const admins = usersFull.map((u) => {
+      const authUser = sbUsers.find((su: any) => su.id === u.supabaseId)
+      return { id: u.id, name: u.name, phone: u.phone, permissions: u.permissions, createdAt: u.createdAt, email: authUser?.email || 'Sem email' }
+    })
 
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      const { data } = await sb.auth.admin.listUsers()
-
-      const finalAdmins = usersFull.map((u) => {
-        const authUser = data.users.find((su) => su.id === u.supabaseId)
-        return { id: u.id, name: u.name, phone: u.phone, permissions: u.permissions, createdAt: u.createdAt, email: authUser?.email || 'Sem email' }
-      })
-
-      return reply.send({ success: true, data: { admins: finalAdmins }, error: null })
-    } catch (err) {
-      console.error('Erro ao listar admins:', err)
-      const admins = await prisma.user.findMany({
-        where: { role: 'ADMIN' },
-        select: { id: true, name: true, phone: true, permissions: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      })
-      return reply.send({ success: true, data: { admins }, error: null })
-    }
+    return reply.send({ success: true, data: { admins }, error: null })
   })
 
-  // GET /admins/:id — Detalhes de um admin
+  // GET /admins/:id
   app.get('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
 
     const { id } = request.params as { id: string }
-
     const user = await prisma.user.findUnique({
       where: { id, role: 'ADMIN' },
       select: { id: true, name: true, phone: true, permissions: true, createdAt: true, supabaseId: true },
     })
     if (!user) return reply.code(404).send({ success: false, error: 'Admin não encontrado' })
 
+    let email = 'Sem email'
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      const { data } = await sb.auth.admin.listUsers()
-      const authUser = data.users.find((su) => su.id === user.supabaseId)
-      return reply.send({ success: true, data: { ...user, email: authUser?.email || 'Sem email' }, error: null })
-    } catch {
-      return reply.send({ success: true, data: { ...user, email: 'Sem email' }, error: null })
-    }
+      const res = await fetch(sbAdminUrl(`users/${user.supabaseId}`), { headers: sbAdminHeaders() })
+      if (res.ok) {
+        const json = await res.json() as any
+        email = json.email || 'Sem email'
+      }
+    } catch {}
+
+    return reply.send({ success: true, data: { ...user, email }, error: null })
   })
 
-  // POST /admins — Admin cadastra novo admin
+  // POST /admins
   app.post('/', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
 
     const { name, email, password, phone, permissions = [] } = request.body as any
-
     const validPerms = (permissions as string[]).filter((p) => ALL_PERMISSIONS.includes(p))
 
-    try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      const { data: authData, error: authError } = await sb.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { role: 'ADMIN', name },
-      })
-      if (authError || !authData.user) {
-        return reply.code(400).send({ success: false, error: authError?.message || 'Erro ao criar auth' })
-      }
-
-      const user = await prisma.user.create({
-        data: { supabaseId: authData.user.id, role: 'ADMIN', name, phone: phone || null, permissions: validPerms },
-      })
-
-      return reply.code(201).send({ success: true, data: user, error: null })
-    } catch (err: any) {
-      console.error('Erro ao criar admin:', err)
-      return reply.code(500).send({ success: false, error: err.message || 'Erro interno' })
+    const res = await fetch(sbAdminUrl('users'), {
+      method: 'POST',
+      headers: sbAdminHeaders(),
+      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { role: 'ADMIN', name } }),
+    })
+    const authData = await res.json() as any
+    if (!res.ok) {
+      return reply.code(400).send({ success: false, error: authData.msg || authData.error_description || 'Erro ao criar auth' })
     }
+
+    const user = await prisma.user.create({
+      data: { supabaseId: authData.id, role: 'ADMIN', name, phone: phone || null, permissions: validPerms },
+    })
+
+    return reply.code(201).send({ success: true, data: user, error: null })
   })
 
-  // PATCH /admins/:id — Edita um admin (nome, telefone, permissões, senha)
+  // PATCH /admins/:id
   app.patch('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
@@ -119,18 +117,20 @@ export async function adminRoutes(app: FastifyInstance) {
 
     if (password && password.length >= 6) {
       try {
-        const { createClient } = await import('@supabase/supabase-js')
-        const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-        await sb.auth.admin.updateUserById(user.supabaseId, { password })
+        await fetch(sbAdminUrl(`users/${user.supabaseId}`), {
+          method: 'PUT',
+          headers: sbAdminHeaders(),
+          body: JSON.stringify({ password }),
+        })
       } catch (err) {
-        console.error('Erro ao atualizar senha do admin:', err)
+        console.error('Erro ao atualizar senha:', err)
       }
     }
 
     return reply.send({ success: true, data: null, error: null })
   })
 
-  // DELETE /admins/:id — Remove um admin
+  // DELETE /admins/:id
   app.delete('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
@@ -142,11 +142,9 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!user) return reply.code(404).send({ success: false, error: 'Admin não encontrado' })
 
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      await sb.auth.admin.deleteUser(user.supabaseId)
+      await fetch(sbAdminUrl(`users/${user.supabaseId}`), { method: 'DELETE', headers: sbAdminHeaders() })
     } catch (err) {
-      console.error('Erro ao remover auth do admin:', err)
+      console.error('Erro ao remover auth:', err)
     }
 
     await prisma.user.delete({ where: { id } })

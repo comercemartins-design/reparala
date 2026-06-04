@@ -47,23 +47,24 @@ export async function technicianRoutes(app: FastifyInstance) {
 
     const body = createTechSchema.parse(request.body)
 
-    // Cria no Supabase Auth
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-    const { data: authData, error } = await supabase.auth.admin.createUser({
-      email: body.email,
-      password: body.password,
-      email_confirm: true,
+    // Cria no Supabase Auth via HTTP direto
+    const sbRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: body.email, password: body.password, email_confirm: true }),
     })
-
-    if (error || !authData.user) {
-      return reply.code(400).send({ success: false, error: error?.message || 'Erro ao criar usuário' })
+    const authData = await sbRes.json() as any
+    if (!sbRes.ok) {
+      return reply.code(400).send({ success: false, error: authData.msg || authData.error_description || 'Erro ao criar usuário' })
     }
 
     const user = await prisma.user.create({
       data: {
-        supabaseId: authData.user.id,
+        supabaseId: authData.id,
         name: body.name,
         phone: body.phone,
         role: 'TECHNICIAN',
@@ -160,9 +161,19 @@ export async function technicianRoutes(app: FastifyInstance) {
 
     // Atualiza senha no Supabase Auth
     if (password && password.length >= 6) {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      await sb.auth.admin.updateUserById((technician as any).user.supabaseId, { password })
+      try {
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${(technician as any).user.supabaseId}`, {
+          method: 'PUT',
+          headers: {
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password }),
+        })
+      } catch (err) {
+        console.error('Erro ao atualizar senha do técnico:', err)
+      }
     }
 
     const updated = await prisma.technician.findUnique({

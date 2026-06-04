@@ -1,31 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { createClient } from '@supabase/supabase-js'
 import { prisma } from '../lib/prisma'
 import { z } from 'zod'
-
-// anon key para signInWithPassword (autenticação de usuário)
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
-
-// service role key para operações admin (criar/deletar usuários)
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -40,35 +15,65 @@ const loginSchema = z.object({
   password: z.string(),
 })
 
+async function supabaseSignIn(email: string, password: string) {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY!,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    }
+  )
+  const json = await res.json() as any
+  if (!res.ok) return { user: null, error: json.error_description || json.msg || 'Email ou senha inválidos' }
+  return { user: json.user as { id: string }, error: null }
+}
+
+async function supabaseCreateUser(email: string, password: string, metadata: Record<string, string>) {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/admin/users`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: metadata }),
+    }
+  )
+  const json = await res.json() as any
+  if (!res.ok) return { user: null, error: json.msg || json.error_description || 'Erro ao criar usuário' }
+  return { user: json as { id: string }, error: null }
+}
+
 export async function authRoutes(app: FastifyInstance) {
 
   // POST /auth/register
   app.post('/register', async (request, reply) => {
     const body = registerSchema.parse(request.body)
 
-    // 1. Cria usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: body.email,
-      password: body.password,
-      email_confirm: true,
-      user_metadata: { name: body.name, role: body.role },
+    const { user: authUser, error } = await supabaseCreateUser(body.email, body.password, {
+      name: body.name,
+      role: body.role,
     })
 
-    if (authError || !authData.user) {
-      return reply.code(400).send({ success: false, error: authError?.message || 'Erro ao criar usuário' })
+    if (error || !authUser) {
+      return reply.code(400).send({ success: false, error })
     }
 
-    // 2. Salva no banco local
     const user = await prisma.user.create({
       data: {
-        supabaseId: authData.user.id,
+        supabaseId: authUser.id,
         name: body.name,
         phone: body.phone,
         role: body.role,
       },
     })
 
-    // 3. Gera JWT próprio
     const token = app.jwt.sign({
       userId: user.id,
       supabaseId: user.supabaseId,
@@ -87,30 +92,21 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/login', async (request, reply) => {
     const body = loginSchema.parse(request.body)
 
-    // 1. Autentica no Supabase
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: body.email,
-      password: body.password,
-    })
+    const { user: authUser, error } = await supabaseSignIn(body.email, body.password)
 
-    if (authError || !authData.user) {
+    if (error || !authUser) {
       return reply.code(401).send({ success: false, error: 'Email ou senha inválidos' })
     }
 
-    // 2. Busca dados do usuário no banco local
     const user = await prisma.user.findUnique({
-      where: { supabaseId: authData.user.id },
-      include: {
-        client: true,
-        technician: true,
-      },
+      where: { supabaseId: authUser.id },
+      include: { client: true, technician: true },
     })
 
     if (!user) {
-      return reply.code(404).send({ success: false, error: 'Usuário não encontrado' })
+      return reply.code(404).send({ success: false, error: 'Usuário não encontrado no sistema' })
     }
 
-    // 3. Gera JWT
     const token = app.jwt.sign({
       userId: user.id,
       supabaseId: user.supabaseId,
@@ -150,7 +146,7 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: user, error: null })
   })
 
-  // PATCH /auth/push-token — Técnico salva token de push
+  // PATCH /auth/push-token
   app.patch('/push-token', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     const { pushToken } = request.body as { pushToken: string }
