@@ -3,7 +3,20 @@ import { createClient } from '@supabase/supabase-js'
 import { prisma } from '../lib/prisma'
 import { z } from 'zod'
 
+// anon key para signInWithPassword (autenticação de usuário)
 const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
+
+// service role key para operações admin (criar/deletar usuários)
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
@@ -34,7 +47,7 @@ export async function authRoutes(app: FastifyInstance) {
     const body = registerSchema.parse(request.body)
 
     // 1. Cria usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
       password: body.password,
       email_confirm: true,
