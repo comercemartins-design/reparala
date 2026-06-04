@@ -17,18 +17,23 @@ const loginSchema = z.object({
 
 async function supabaseSignIn(email: string, password: string) {
   const url = `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      apikey: process.env.SUPABASE_ANON_KEY!,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  })
-  const json = await res.json() as any
-  console.log('[supabaseSignIn] status:', res.status, 'body:', JSON.stringify(json).slice(0, 200))
-  if (!res.ok) return { user: null, error: json.error_description || json.msg || json.error || 'Falha na autenticação' }
-  return { user: json.user as { id: string }, error: null }
+  let rawText = ''
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY!,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    })
+    rawText = await res.text()
+    const json = JSON.parse(rawText) as any
+    if (!res.ok) return { user: null, error: `HTTP ${res.status}: ${rawText.slice(0, 300)}` }
+    return { user: json.user as { id: string }, error: null }
+  } catch (e: any) {
+    return { user: null, error: `fetch exception: ${e?.message} | raw: ${rawText.slice(0, 200)}` }
+  }
 }
 
 async function supabaseCreateUser(email: string, password: string, metadata: Record<string, string>) {
