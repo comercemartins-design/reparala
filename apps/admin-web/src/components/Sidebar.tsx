@@ -5,11 +5,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { clearAuth, getStoredUser } from '@/lib/auth'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',              icon: '📊', label: 'Visão Geral' },
-  { href: '/dashboard/orders',       icon: '📋', label: 'Chamados' },
-  { href: '/dashboard/technicians',  icon: '👷', label: 'Técnicos' },
-  { href: '/dashboard/clients',      icon: '👥', label: 'Clientes' },
-  { href: '/dashboard/admins',       icon: '👑', label: 'Admins' },
+  { href: '/dashboard',                        icon: '📊', label: 'Visão Geral' },
+  { href: '/dashboard/orders',                 icon: '📋', label: 'Chamados' },
+  { href: '/dashboard/technicians',            icon: '👷', label: 'Técnicos' },
+  { href: '/dashboard/technicians/queue',      icon: '⚡', label: 'Fila de Técnicos' },
+  { href: '/dashboard/clients',                icon: '👥', label: 'Clientes' },
+  { href: '/dashboard/admins',                 icon: '👑', label: 'Admins' },
 ]
 
 export default function Sidebar() {
@@ -38,7 +39,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 p-4 space-y-1">
         {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/') && !NAV_ITEMS.some((other) => other.href !== item.href && pathname.startsWith(other.href)))
           return (
             <Link
               key={item.href}

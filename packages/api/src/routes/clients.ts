@@ -88,10 +88,11 @@ export async function clientRoutes(app: FastifyInstance) {
       return reply.code(403).send({ success: false, error: 'Acesso negado' })
     }
 
-    const { type, city, page = '1', limit = '20' } = request.query as any
+    const { type, city, search, page = '1', limit = '20' } = request.query as any
     const where: any = {}
     if (type) where.type = type
     if (city) where.city = { contains: city, mode: 'insensitive' }
+    if (search) where.user = { name: { contains: search, mode: 'insensitive' } }
 
     const [clients, total] = await Promise.all([
       prisma.client.findMany({

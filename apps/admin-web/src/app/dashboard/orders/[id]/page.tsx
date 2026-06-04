@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { StatusBadge, PriorityBadge } from '@/components/Badge'
+import Lightbox from '@/components/Lightbox'
 
 const STATUS_FLOW = [
   { key: 'OPEN',               label: 'Chamado aberto' },
@@ -14,6 +15,17 @@ const STATUS_FLOW = [
   { key: 'IN_PROGRESS',        label: 'Em execução' },
   { key: 'AWAITING_APPROVAL',  label: 'Aguardando aprovação' },
   { key: 'COMPLETED',          label: 'Concluído' },
+]
+
+const ALL_STATUSES = [
+  { value: 'OPEN',               label: '📋 Aberto' },
+  { value: 'DISPATCHED',         label: '📡 Despachado' },
+  { value: 'ACCEPTED',           label: '✅ Aceito' },
+  { value: 'EN_ROUTE',           label: '🚗 A caminho' },
+  { value: 'IN_PROGRESS',        label: '🔧 Em execução' },
+  { value: 'AWAITING_APPROVAL',  label: '⏳ Aguard. aprovação' },
+  { value: 'COMPLETED',          label: '✅ Concluído' },
+  { value: 'CANCELLED',          label: '❌ Cancelado' },
 ]
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -30,12 +42,16 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null)
   const [technicians, setTechnicians] = useState<any[]>([])
   const [selectedTech, setSelectedTech] = useState('')
+  const [forceStatus, setForceStatus] = useState('')
   const [loading, setLoading] = useState(true)
-  const [assigning, setAssigning] = useState(false)
-  const [assignSuccess, setAssignSuccess] = useState('')
+  const [working, setWorking] = useState(false)
+  const [feedback, setFeedback] = useState('')
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
+    const interval = setInterval(loadData, 20000)
+    return () => clearInterval(interval)
   }, [id])
 
   async function loadData() {
@@ -45,10 +61,7 @@ export default function OrderDetailPage() {
         api.get<any>('/technicians'),
       ])
       setOrder(orderRes.data)
-      const availTechs = (techRes.data || []).filter((t: any) =>
-        t.status === 'AVAILABLE' && t.specialties?.includes(orderRes.data?.category)
-      )
-      setTechnicians(availTechs)
+      setTechnicians(techRes.data || [])
     } catch {
     } finally {
       setLoading(false)
@@ -57,36 +70,66 @@ export default function OrderDetailPage() {
 
   async function handleAssign() {
     if (!selectedTech) return
-    setAssigning(true)
+    setWorking(true)
     try {
       await api.patch(`/orders/${id}/assign`, { technicianId: selectedTech })
-      setAssignSuccess('Técnico atribuído com sucesso! ✅')
+      setFeedback('Técnico atribuído com sucesso! ✅')
       setSelectedTech('')
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Erro ao atribuir técnico')
+      setFeedback('Erro: ' + (err.message || 'falha ao atribuir'))
     } finally {
-      setAssigning(false)
+      setWorking(false)
     }
   }
 
-  async function handleForceComplete() {
-    if (!window.confirm('Tem certeza que deseja forçar a conclusão deste chamado manualmente?')) return
+  async function handleUnassign() {
+    if (!window.confirm('Remover o técnico deste chamado? O chamado voltará para a fila.')) return
+    setWorking(true)
     try {
-      await api.patch(`/orders/${id}/status`, { status: 'COMPLETED' })
-      setAssignSuccess('Chamado concluído manualmente com sucesso! ✅')
+      await api.patch(`/orders/${id}/unassign`, {})
+      setFeedback('Técnico removido. Chamado voltou para a fila. ✅')
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Erro ao concluir chamado')
+      setFeedback('Erro: ' + (err.message || 'falha'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleForceStatus() {
+    if (!forceStatus) return
+    const statusLabel = ALL_STATUSES.find((s) => s.value === forceStatus)?.label || forceStatus
+    if (!window.confirm(`Forçar status para "${statusLabel}"? Esta ação altera o registro do chamado.`)) return
+    setWorking(true)
+    try {
+      await api.patch(`/orders/${id}/admin-status`, { status: forceStatus })
+      setFeedback(`Status alterado para ${statusLabel} ✅`)
+      setForceStatus('')
+      await loadData()
+    } catch (err: any) {
+      setFeedback('Erro: ' + (err.message || 'falha'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleCancel() {
+    if (!window.confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
+    setWorking(true)
+    try {
+      await api.patch(`/orders/${id}/admin-status`, { status: 'CANCELLED' })
+      setFeedback('Chamado cancelado ✅')
+      await loadData()
+    } catch (err: any) {
+      setFeedback('Erro: ' + (err.message || 'falha'))
+    } finally {
+      setWorking(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400">Carregando chamado...</p>
-      </div>
-    )
+    return <div className="flex items-center justify-center h-64"><p className="text-gray-400">Carregando chamado...</p></div>
   }
 
   if (!order) {
@@ -99,10 +142,15 @@ export default function OrderDetailPage() {
   }
 
   const currentIndex = STATUS_FLOW.findIndex((s) => s.key === order.status)
-  const canAssign = ['OPEN', 'DISPATCHED'].includes(order.status)
+  const isActive = !['COMPLETED', 'CANCELLED'].includes(order.status)
+
+  // Técnicos compatíveis com a especialidade + todos (para forçar)
+  const compatibleTechs = technicians.filter((t: any) => t.specialties?.includes(order.category))
+  const allTechs = technicians
 
   return (
     <div>
+      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
       {/* Cabeçalho */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
@@ -115,6 +163,12 @@ export default function OrderDetailPage() {
           <StatusBadge status={order.status} />
         </div>
       </div>
+
+      {feedback && (
+        <div className={`mb-4 p-3 rounded-xl text-sm font-semibold ${feedback.startsWith('Erro') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+          {feedback}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Coluna principal */}
@@ -184,12 +238,9 @@ export default function OrderDetailPage() {
               <InfoRow label="Aberto em" value={new Date(order.createdAt).toLocaleString('pt-BR')} />
             </div>
 
-            {/* Bloco exclusivo de condomínio */}
             {order.client?.type === 'CONDO' && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-500 font-semibold mb-3 flex items-center gap-1.5">
-                  🏗️ DADOS DO CONDOMÍNIO
-                </p>
+                <p className="text-xs text-gray-500 font-semibold mb-3">🏗️ DADOS DO CONDOMÍNIO</p>
                 <div className="bg-blue-50 rounded-xl p-4 space-y-3">
                   {order.client?.condoName && (
                     <div>
@@ -198,28 +249,11 @@ export default function OrderDetailPage() {
                     </div>
                   )}
                   <div className="grid grid-cols-3 gap-3">
-                    {order.client?.condoBlock && (
-                      <div className="bg-white rounded-lg p-2.5 text-center">
-                        <p className="text-[10px] text-gray-400 font-semibold">Bloco</p>
-                        <p className="text-sm font-bold text-gray-800">{order.client.condoBlock}</p>
-                      </div>
-                    )}
-                    {order.client?.condoFloor != null && (
-                      <div className="bg-white rounded-lg p-2.5 text-center">
-                        <p className="text-[10px] text-gray-400 font-semibold">Andar</p>
-                        <p className="text-sm font-bold text-gray-800">{order.client.condoFloor}º</p>
-                      </div>
-                    )}
-                    {order.client?.condoUnit && (
-                      <div className="bg-white rounded-lg p-2.5 text-center">
-                        <p className="text-[10px] text-gray-400 font-semibold">Unidade</p>
-                        <p className="text-sm font-bold text-gray-800">{order.client.condoUnit}</p>
-                      </div>
-                    )}
+                    {order.client?.condoBlock && <div className="bg-white rounded-lg p-2.5 text-center"><p className="text-[10px] text-gray-400 font-semibold">Bloco</p><p className="text-sm font-bold text-gray-800">{order.client.condoBlock}</p></div>}
+                    {order.client?.condoFloor != null && <div className="bg-white rounded-lg p-2.5 text-center"><p className="text-[10px] text-gray-400 font-semibold">Andar</p><p className="text-sm font-bold text-gray-800">{order.client.condoFloor}º</p></div>}
+                    {order.client?.condoUnit && <div className="bg-white rounded-lg p-2.5 text-center"><p className="text-[10px] text-gray-400 font-semibold">Unidade</p><p className="text-sm font-bold text-gray-800">{order.client.condoUnit}</p></div>}
                   </div>
-                  <p className="text-xs text-blue-500">
-                    📍 {order.serviceAddress}, {order.serviceCity}
-                  </p>
+                  <p className="text-xs text-blue-500">📍 {order.serviceAddress}, {order.serviceCity}</p>
                 </div>
               </div>
             )}
@@ -236,38 +270,26 @@ export default function OrderDetailPage() {
           {order.media?.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="font-bold text-gray-800 mb-4">Fotos do Serviço</h2>
-              
-              {/* Fotos do Problema */}
               {order.media.some((m: any) => m.phase === 'REPORT') && (
                 <div className="mb-4">
                   <p className="text-sm font-semibold text-gray-600 mb-2">📸 Fotos do Problema (Cliente)</p>
                   <div className="flex gap-3 flex-wrap">
                     {order.media.filter((m: any) => m.phase === 'REPORT').map((m: any) => (
-                      <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={m.url}
-                          alt="Problema"
-                          className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 transition"
-                        />
-                      </a>
+                      <button key={m.id} onClick={() => setLightboxUrl(m.url)} className="focus:outline-none">
+                        <img src={m.url} alt="Problema" className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 hover:shadow-lg transition cursor-zoom-in" />
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Fotos da Conclusão */}
               {order.media.some((m: any) => m.phase === 'COMPLETION') && (
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-sm font-semibold text-gray-600 mb-2 mt-2">✅ Fotos da Conclusão (Técnico)</p>
                   <div className="flex gap-3 flex-wrap">
                     {order.media.filter((m: any) => m.phase === 'COMPLETION').map((m: any) => (
-                      <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={m.url}
-                          alt="Conclusão"
-                          className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 transition"
-                        />
-                      </a>
+                      <button key={m.id} onClick={() => setLightboxUrl(m.url)} className="focus:outline-none">
+                        <img src={m.url} alt="Conclusão" className="w-24 h-24 object-cover rounded-xl border border-gray-200 hover:scale-105 hover:shadow-lg transition cursor-zoom-in" />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -278,7 +300,7 @@ export default function OrderDetailPage() {
 
         {/* Coluna lateral */}
         <div className="space-y-6">
-          {/* Técnico */}
+          {/* Técnico responsável */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="font-bold text-gray-800 mb-4">Técnico responsável</h2>
             {order.technician ? (
@@ -288,34 +310,27 @@ export default function OrderDetailPage() {
                     <p className="font-semibold text-gray-900">{order.technician.user?.name}</p>
                     <p className="text-sm text-gray-500 mt-0.5">{order.technician.city}</p>
                   </div>
-                  <Link
-                    href={`/dashboard/technicians/${order.technician.id}`}
-                    className="text-xs font-semibold text-brand-600 hover:underline"
-                  >
+                  <Link href={`/dashboard/technicians/${order.technician.id}`} className="text-xs font-semibold text-brand-600 hover:underline">
                     Editar →
                   </Link>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <StatusBadge status={order.technician.status} />
-                  {order.technician.rating && (
-                    <span className="text-sm text-amber-600 font-semibold">
-                      ⭐ {order.technician.rating.toFixed(1)}
-                    </span>
-                  )}
+                  {order.technician.rating && <span className="text-sm text-amber-600 font-semibold">⭐ {order.technician.rating.toFixed(1)}</span>}
                 </div>
-                {order.technician.user?.phone ? (
-                  <a
-                    href={`https://wa.me/55${order.technician.user.phone.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition"
-                  >
+                {order.technician.user?.phone && (
+                  <a href={`https://wa.me/55${order.technician.user.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition">
                     <span>💬</span>
                     <span className="font-semibold">{order.technician.user.phone}</span>
                     <span className="ml-auto text-xs text-green-500">WhatsApp →</span>
                   </a>
-                ) : (
-                  <p className="text-xs text-gray-400 mt-2">Sem telefone</p>
+                )}
+                {isActive && (
+                  <button onClick={handleUnassign} disabled={working}
+                    className="mt-3 w-full text-sm font-semibold py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-50">
+                    Remover técnico
+                  </button>
                 )}
               </div>
             ) : (
@@ -323,57 +338,65 @@ export default function OrderDetailPage() {
             )}
           </div>
 
-          {/* Atribuir técnico */}
-          {canAssign && (
+          {/* Atribuir / Reatribuir técnico */}
+          {isActive && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-800 mb-4">Atribuir técnico</h2>
-              {assignSuccess && (
-                <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 mb-3 text-sm">
-                  {assignSuccess}
-                </div>
-              )}
-              {technicians.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                  Nenhum técnico disponível com a especialidade necessária ({order.category}).
-                </p>
-              ) : (
-                <>
-                  <select
-                    value={selectedTech}
-                    onChange={(e) => setSelectedTech(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  >
-                    <option value="">Selecione um técnico...</option>
-                    {technicians.map((t: any) => (
+              <h2 className="font-bold text-gray-800 mb-1">{order.technician ? 'Reatribuir técnico' : 'Atribuir técnico'}</h2>
+              <p className="text-xs text-gray-400 mb-4">
+                {order.technician ? 'O técnico atual será substituído.' : 'Selecione um técnico para despachar.'}
+              </p>
+              <div className="mb-2">
+                <p className="text-xs text-gray-500 font-semibold mb-1">Compatíveis com {order.category}</p>
+                <select value={selectedTech} onChange={(e) => setSelectedTech(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="">Selecione...</option>
+                  {compatibleTechs.map((t: any) => (
+                    <option key={t.id} value={t.id}>
+                      {t.user?.name} — {t.city} [{t.status}] (⭐{t.rating?.toFixed(1) || '—'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {compatibleTechs.length === 0 && allTechs.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs text-orange-500 font-semibold mb-1">Todos os técnicos (fora da especialidade)</p>
+                  <select value={selectedTech} onChange={(e) => setSelectedTech(e.target.value)}
+                    className="w-full border border-orange-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="">Selecione...</option>
+                    {allTechs.map((t: any) => (
                       <option key={t.id} value={t.id}>
-                        {t.user?.name} — {t.city} (⭐{t.rating?.toFixed(1) || '—'})
+                        {t.user?.name} — {t.city} [{t.status}]
                       </option>
                     ))}
                   </select>
-                  <button
-                    onClick={handleAssign}
-                    disabled={!selectedTech || assigning}
-                    className="w-full bg-brand-800 hover:bg-brand-700 text-white text-sm font-semibold py-2.5 rounded-lg transition disabled:opacity-50"
-                  >
-                    {assigning ? 'Atribuindo...' : '📡 Atribuir e notificar'}
-                  </button>
-                </>
+                </div>
               )}
+              <button onClick={handleAssign} disabled={!selectedTech || working}
+                className="w-full bg-brand-800 hover:bg-brand-700 text-white text-sm font-semibold py-2.5 rounded-lg transition disabled:opacity-50">
+                {working ? 'Processando...' : '📡 Atribuir e notificar'}
+              </button>
             </div>
           )}
 
-          {/* Ações Administrativas */}
-          {['EN_ROUTE', 'IN_PROGRESS', 'AWAITING_APPROVAL'].includes(order.status) && (
-            <div className="bg-white rounded-2xl border border-red-100 p-6">
-              <h2 className="font-bold text-red-800 mb-2">Ações Administrativas</h2>
-              <p className="text-xs text-red-600 mb-4">
-                Use apenas se o técnico esqueceu de concluir o chamado pelo aplicativo.
-              </p>
-              <button
-                onClick={handleForceComplete}
-                className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg transition"
-              >
-                ⚠️ Forçar Conclusão Manual
+          {/* Controle administrativo de processo */}
+          {isActive && (
+            <div className="bg-white rounded-2xl border border-amber-100 p-6">
+              <h2 className="font-bold text-amber-800 mb-1">Controle de processo</h2>
+              <p className="text-xs text-amber-600 mb-4">Forçar mudança de status manualmente.</p>
+              <select value={forceStatus} onChange={(e) => setForceStatus(e.target.value)}
+                className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">Selecione o status alvo...</option>
+                {ALL_STATUSES.filter((s) => s.value !== order.status && s.value !== 'CANCELLED').map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <button onClick={handleForceStatus} disabled={!forceStatus || working}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2.5 rounded-lg transition disabled:opacity-50 mb-3">
+                {working ? 'Processando...' : '⚡ Forçar status'}
+              </button>
+              <button onClick={handleCancel} disabled={working}
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg transition disabled:opacity-50">
+                ❌ Cancelar chamado
               </button>
             </div>
           )}
@@ -384,12 +407,8 @@ export default function OrderDetailPage() {
             <p className="font-semibold text-gray-900">{order.client?.user?.name}</p>
             <p className="text-sm text-gray-500 mt-0.5">{CLIENT_TYPE_LABELS[order.client?.type] || '—'}</p>
             {order.client?.user?.phone ? (
-              <a
-                href={`https://wa.me/55${order.client.user.phone.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition"
-              >
+              <a href={`https://wa.me/55${order.client.user.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 hover:bg-green-100 transition">
                 <span>💬</span>
                 <span className="font-semibold">{order.client.user.phone}</span>
                 <span className="ml-auto text-xs text-green-500">WhatsApp →</span>
@@ -400,12 +419,8 @@ export default function OrderDetailPage() {
             {order.rating && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-400 mb-1">Avaliação do serviço</p>
-                <p className="text-lg text-amber-400">
-                  {'★'.repeat(order.rating)}{'☆'.repeat(5 - order.rating)}
-                </p>
-                {order.ratingComment && (
-                  <p className="text-xs text-gray-500 mt-1 italic">"{order.ratingComment}"</p>
-                )}
+                <p className="text-lg text-amber-400">{'★'.repeat(order.rating)}{'☆'.repeat(5 - order.rating)}</p>
+                {order.ratingComment && <p className="text-xs text-gray-500 mt-1 italic">"{order.ratingComment}"</p>}
               </div>
             )}
           </div>

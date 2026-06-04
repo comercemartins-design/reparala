@@ -40,6 +40,11 @@ export default function OrdersPage() {
     return () => clearTimeout(delayDebounceFn)
   }, [statusFilter, page, searchQuery])
 
+  useEffect(() => {
+    const interval = setInterval(loadOrders, 20000)
+    return () => clearInterval(interval)
+  }, [statusFilter, page, searchQuery])
+
   async function loadOrders() {
     setLoading(true)
     try {

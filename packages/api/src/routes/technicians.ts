@@ -185,4 +185,24 @@ export async function technicianRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: technician, error: null })
   })
+
+  // GET /technicians/queue — Fila de chamados por técnico (admin)
+  app.get('/queue', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Acesso negado' })
+
+    const technicians = await prisma.technician.findMany({
+      include: {
+        user: { select: { name: true, phone: true } },
+        orders: {
+          where: { status: { in: ['DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS', 'AWAITING_APPROVAL'] } },
+          include: { client: { include: { user: { select: { name: true } } } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { status: 'asc' },
+    })
+
+    return reply.send({ success: true, data: technicians, error: null })
+  })
 }

@@ -127,7 +127,7 @@ export async function orderRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: order, error: null })
   })
 
-  // PATCH /orders/:id/assign — Admin atribui técnico (despacho manual)
+  // PATCH /orders/:id/assign — Admin atribui/reatribui técnico (despacho manual, qualquer status)
   app.patch('/:id/assign', { preHandler: [app.authenticate] }, async (request, reply) => {
     const payload = request.user as any
     if (payload.role !== 'ADMIN') {
@@ -137,34 +137,86 @@ export async function orderRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string }
     const { technicianId } = request.body as { technicianId: string }
 
-    const tech = await prisma.technician.findUnique({
-      where: { id: technicianId },
-      include: { user: true },
-    })
+    const tech = await prisma.technician.findUnique({ where: { id: technicianId }, include: { user: true } })
     if (!tech) return reply.code(404).send({ success: false, error: 'Técnico não encontrado' })
+
+    const currentOrder = await prisma.order.findUnique({ where: { id } })
+    if (!currentOrder) return reply.code(404).send({ success: false, error: 'Chamado não encontrado' })
+
+    // Se havia outro técnico, libera ele
+    if (currentOrder.technicianId && currentOrder.technicianId !== technicianId) {
+      const activeOrders = await prisma.order.count({
+        where: { technicianId: currentOrder.technicianId, status: { in: ['ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS', 'DISPATCHED'] }, id: { not: id } },
+      })
+      if (activeOrders === 0) {
+        await prisma.technician.update({ where: { id: currentOrder.technicianId }, data: { status: 'AVAILABLE' } })
+      }
+    }
 
     const order = await prisma.order.update({
       where: { id },
-      data: {
-        technicianId,
-        status: 'DISPATCHED',
-        dispatchedAt: new Date(),
-      },
+      data: { technicianId, status: 'DISPATCHED', dispatchedAt: new Date() },
     })
 
-    // Registra no log de despacho
-    await prisma.dispatchLog.create({
-      data: { orderId: id, technicianId, action: 'manual' },
-    })
+    await prisma.dispatchLog.create({ data: { orderId: id, technicianId, action: 'manual' } })
 
-    // Notifica o técnico
     if (tech.user.pushToken) {
-      await sendPushNotification(
-        tech.user.pushToken,
-        '🔔 Novo chamado disponível!',
-        `${order.category} — ${order.problemCode}`,
-        { orderId: order.id, screen: 'OrderOffer' }
-      )
+      await sendPushNotification(tech.user.pushToken, '🔔 Novo chamado disponível!', `${order.category} — ${order.problemCode}`, { orderId: order.id, screen: 'OrderOffer' })
+    }
+
+    return reply.send({ success: true, data: order, error: null })
+  })
+
+  // PATCH /orders/:id/unassign — Admin remove técnico do chamado
+  app.patch('/:id/unassign', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Apenas admins' })
+
+    const { id } = request.params as { id: string }
+    const currentOrder = await prisma.order.findUnique({ where: { id } })
+    if (!currentOrder) return reply.code(404).send({ success: false, error: 'Chamado não encontrado' })
+
+    if (currentOrder.technicianId) {
+      const activeOrders = await prisma.order.count({
+        where: { technicianId: currentOrder.technicianId, status: { in: ['ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS', 'DISPATCHED'] }, id: { not: id } },
+      })
+      if (activeOrders === 0) {
+        await prisma.technician.update({ where: { id: currentOrder.technicianId }, data: { status: 'AVAILABLE' } })
+      }
+    }
+
+    const order = await prisma.order.update({ where: { id }, data: { technicianId: null, status: 'OPEN' } })
+    return reply.send({ success: true, data: order, error: null })
+  })
+
+  // PATCH /orders/:id/admin-status — Admin força qualquer status (incluindo CANCELLED)
+  app.patch('/:id/admin-status', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const payload = request.user as any
+    if (payload.role !== 'ADMIN') return reply.code(403).send({ success: false, error: 'Apenas admins' })
+
+    const { id } = request.params as { id: string }
+    const { status } = request.body as { status: string }
+
+    const allStatuses = ['OPEN', 'DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS', 'AWAITING_APPROVAL', 'COMPLETED', 'CANCELLED']
+    if (!allStatuses.includes(status)) return reply.code(400).send({ success: false, error: 'Status inválido' })
+
+    const data: any = { status }
+    if (status === 'EN_ROUTE') data.enRouteAt = new Date()
+    if (status === 'IN_PROGRESS') data.startedAt = new Date()
+    if (status === 'COMPLETED' || status === 'AWAITING_APPROVAL') data.completedAt = new Date()
+    if (status === 'DISPATCHED') data.dispatchedAt = new Date()
+    if (status === 'ACCEPTED') data.acceptedAt = new Date()
+    if (status === 'OPEN') { data.technicianId = null }
+
+    const order = await prisma.order.update({ where: { id }, data, include: { technician: true } })
+
+    if ((status === 'COMPLETED' || status === 'CANCELLED') && order.technicianId) {
+      const activeOrders = await prisma.order.count({
+        where: { technicianId: order.technicianId, status: { in: ['ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS', 'DISPATCHED'] }, id: { not: id } },
+      })
+      if (activeOrders === 0) {
+        await prisma.technician.update({ where: { id: order.technicianId }, data: { status: 'AVAILABLE', ...(status === 'COMPLETED' ? { jobsTotal: { increment: 1 }, jobsToday: { increment: 1 } } : {}) } })
+      }
     }
 
     return reply.send({ success: true, data: order, error: null })

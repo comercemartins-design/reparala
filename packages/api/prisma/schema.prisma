@@ -65,6 +65,7 @@ model User {
   name        String
   phone       String?
   pushToken   String?    @map("push_token") // Expo push token
+  permissions String[]   @default([])       // Admin permissions: MANAGE_ORDERS | MANAGE_CLIENTS | MANAGE_TECHNICIANS | MANAGE_ADMINS
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 

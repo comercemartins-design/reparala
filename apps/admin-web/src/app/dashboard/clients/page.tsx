@@ -13,16 +13,20 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    loadClients()
-  }, [typeFilter])
+    const delay = setTimeout(() => loadClients(), 400)
+    return () => clearTimeout(delay)
+  }, [typeFilter, searchQuery])
 
   async function loadClients() {
     setLoading(true)
     try {
-      const params = typeFilter ? `?type=${typeFilter}` : ''
-      const res = await api.get<any>(`/clients${params}`)
+      const params = new URLSearchParams()
+      if (typeFilter) params.set('type', typeFilter)
+      if (searchQuery) params.set('search', searchQuery)
+      const res = await api.get<any>(`/clients${params.toString() ? `?${params}` : ''}`)
       setClients(res.data?.clients || [])
     } catch {
     } finally {
@@ -45,26 +49,38 @@ export default function ClientsPage() {
         </Link>
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-2 mb-6">
-        {[
-          { value: '', label: 'Todos' },
-          { value: 'RESIDENCE', label: '🏠 Residência' },
-          { value: 'COMPANY', label: '🏢 Empresa' },
-          { value: 'CONDO', label: '🏗️ Condomínio' },
-        ].map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setTypeFilter(f.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-              typeFilter === f.value
-                ? 'bg-brand-800 text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-500'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Filtros e Busca */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { value: '', label: 'Todos' },
+            { value: 'RESIDENCE', label: '🏠 Residência' },
+            { value: 'COMPANY', label: '🏢 Empresa' },
+            { value: 'CONDO', label: '🏗️ Condomínio' },
+          ].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setTypeFilter(f.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                typeFilter === f.value
+                  ? 'bg-brand-800 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-brand-500'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full md:w-64">
+          <input
+            type="text"
+            placeholder="Buscar por nome..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
