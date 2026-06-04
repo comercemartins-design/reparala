@@ -9,6 +9,7 @@ import { orderRoutes } from './routes/orders'
 import { technicianRoutes } from './routes/technicians'
 import { clientRoutes } from './routes/clients'
 import { adminRoutes } from './routes/admins'
+import { setupRoutes } from './routes/setup'
 import { checkStaleDispatches } from './services/dispatch'
 
 const app = Fastify({ logger: true })
@@ -33,6 +34,7 @@ async function main() {
   await app.register(technicianRoutes, { prefix: '/technicians' })
   await app.register(clientRoutes, { prefix: '/clients' })
   await app.register(adminRoutes, { prefix: '/admins' })
+  await app.register(setupRoutes, { prefix: '/setup' })
 
   app.get('/health', async () => ({
     status: 'ok',
