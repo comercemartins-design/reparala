@@ -1,5 +1,6 @@
 import axios from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { resetToLogin } from './navigationService'
 
 const API_URL = 'https://reparala-api.onrender.com'
 
@@ -19,8 +20,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await AsyncStorage.removeItem('@reparala-tech:token')
-      await AsyncStorage.removeItem('@reparala-tech:user')
+      await AsyncStorage.multiRemove(['@reparala-tech:token', '@reparala-tech:user'])
+      resetToLogin()
     }
     return Promise.reject(error)
   }

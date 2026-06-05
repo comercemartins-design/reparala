@@ -1,5 +1,6 @@
 import axios from 'axios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { resetToLogin } from './navigationService'
 
 const API_URL = 'https://reparala-api.onrender.com'
 
@@ -9,20 +10,18 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Injeta token automaticamente em todas as requisições
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('@reparala:token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// Trata erros globalmente
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await AsyncStorage.removeItem('@reparala:token')
-      await AsyncStorage.removeItem('@reparala:user')
+      await AsyncStorage.multiRemove(['@reparala:token', '@reparala:user'])
+      resetToLogin()
     }
     return Promise.reject(error)
   }

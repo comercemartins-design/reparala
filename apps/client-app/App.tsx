@@ -8,6 +8,7 @@ import * as Device from 'expo-device'
 
 import { AuthProvider, useAuth } from './src/hooks/useAuth'
 import api from './src/services/api'
+import { navigationRef } from './src/services/navigationService'
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen'
@@ -34,7 +35,6 @@ function AppNavigator() {
   const { user, loading } = useAuth()
   const notificationListener = useRef<any>()
   const responseListener = useRef<any>()
-  const navigationRef = useRef<any>()
 
   useEffect(() => {
     if (user?.client) registerPushToken()
@@ -43,8 +43,8 @@ function AppNavigator() {
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as any
-      if (data?.orderId && navigationRef.current) {
-        navigationRef.current.navigate('OrderStatus', { orderId: data.orderId })
+      if (data?.orderId && navigationRef.isReady()) {
+        navigationRef.navigate('OrderStatus' as never, { orderId: data.orderId } as never)
       }
     })
 
@@ -73,7 +73,7 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef as any}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: '#FF5A1F' },
