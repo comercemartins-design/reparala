@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  FlatList, Alert, RefreshControl, Platform,
+  FlatList, Alert, RefreshControl, Platform, Linking,
 } from 'react-native'
 import { useAuth } from '../hooks/useAuth'
 import api from '../services/api'
@@ -97,10 +97,13 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={s.trustLabel}>Garantido</Text>
             </View>
             <View style={s.trustSep} />
-            <View style={s.trustItem}>
+            <TouchableOpacity
+              style={s.trustItem}
+              onPress={() => Linking.openURL('https://wa.me/5531993398344')}
+            >
               <Text style={s.trustIcon}>💬</Text>
               <Text style={s.trustLabel}>Suporte</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* ─── CATEGORIES ─── */}
