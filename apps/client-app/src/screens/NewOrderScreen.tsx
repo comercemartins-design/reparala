@@ -5,14 +5,30 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
-import { createClient } from '@supabase/supabase-js'
 import Constants from 'expo-constants'
 import api from '../services/api'
 
-const supabase = createClient(
-  Constants.expoConfig?.extra?.supabaseUrl,
-  Constants.expoConfig?.extra?.supabaseAnonKey
-)
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string
+const SUPABASE_KEY = Constants.expoConfig?.extra?.supabaseAnonKey as string
+
+async function uploadToStorage(photoUri: string, filename: string): Promise<string | null> {
+  try {
+    const response = await fetch(photoUri)
+    const blob = await response.blob()
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg' },
+        body: blob,
+      }
+    )
+    if (!uploadRes.ok) return null
+    return `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
+  } catch {
+    return null
+  }
+}
 
 const SUBCATEGORIES: Record<string, { key: string; label: string }[]> = {
   HID: [
@@ -125,19 +141,10 @@ export default function NewOrderScreen({ route, navigation }: any) {
       // Upload das fotos para Supabase Storage
       for (const photoUri of photos) {
         const filename = `orders/${orderId}/${Date.now()}.jpg`
-        const response = await fetch(photoUri)
-        const blob = await response.blob()
-
-        const { data: uploadData } = await supabase.storage
-          .from('order-media')
-          .upload(filename, blob, { contentType: 'image/jpeg' })
-
-        if (uploadData) {
-          const { data: urlData } = supabase.storage.from('order-media').getPublicUrl(filename)
+        const publicUrl = await uploadToStorage(photoUri, filename)
+        if (publicUrl) {
           await api.post(`/orders/${orderId}/media`, {
-            url: urlData.publicUrl,
-            phase: 'REPORT',
-            mimeType: 'image/jpeg',
+            url: publicUrl, phase: 'REPORT', mimeType: 'image/jpeg',
           })
         }
       }
