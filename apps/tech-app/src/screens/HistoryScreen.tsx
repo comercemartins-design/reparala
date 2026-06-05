@@ -6,8 +6,9 @@ import {
 import api from '../services/api'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  COMPLETED:  { label: 'Concluído',  color: '#10B981' },
-  CANCELLED:  { label: 'Cancelado',  color: '#EF4444' },
+  AWAITING_APPROVAL: { label: 'Aguard. avaliação', color: '#F59E0B' },
+  COMPLETED:         { label: 'Concluído',          color: '#10B981' },
+  CANCELLED:         { label: 'Cancelado',           color: '#EF4444' },
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -25,9 +26,18 @@ export default function HistoryScreen({ navigation }: any) {
 
   async function loadHistory() {
     try {
-      const res = await api.get('/orders?status=COMPLETED&limit=50')
-      const allOrders = res.data.data.orders || []
-      setOrders(allOrders.filter((o: any) => ['COMPLETED', 'CANCELLED'].includes(o.status)))
+      const [resCompleted, resAwaiting, resCancelled] = await Promise.all([
+        api.get('/orders?status=COMPLETED&limit=50'),
+        api.get('/orders?status=AWAITING_APPROVAL&limit=50'),
+        api.get('/orders?status=CANCELLED&limit=50'),
+      ])
+      const all = [
+        ...(resAwaiting.data.data.orders || []),
+        ...(resCompleted.data.data.orders || []),
+        ...(resCancelled.data.data.orders || []),
+      ]
+      all.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setOrders(all)
     } catch {
     } finally {
       setLoading(false)
