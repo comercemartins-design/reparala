@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator,
   RefreshControl, FlatList, TextInput, Linking,
+  Image, Modal,
 } from 'react-native'
 import api from '../services/api'
 
@@ -23,6 +24,7 @@ export function OrderStatusScreen({ route, navigation }: any) {
   const [refreshing, setRefreshing] = useState(false)
   const [rating, setRating] = useState(0)
   const [rated, setRated] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   useEffect(() => {
     loadOrder()
@@ -152,6 +154,50 @@ export function OrderStatusScreen({ route, navigation }: any) {
           )
         })}
       </View>
+
+      {/* Fotos do chamado */}
+      {order.media && order.media.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📎 Fotos anexadas ({order.media.length})</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {order.media.map((m: any) => (
+              <TouchableOpacity key={m.id} onPress={() => setLightboxUrl(m.url)}>
+                <Image
+                  source={{ uri: m.url }}
+                  style={{ width: 90, height: 90, borderRadius: 8, backgroundColor: '#f0f0f0' }}
+                  resizeMode="cover"
+                />
+                <View style={{
+                  position: 'absolute', bottom: 4, left: 4,
+                  backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4, paddingHorizontal: 4
+                }}>
+                  <Text style={{ fontSize: 9, color: '#fff' }}>
+                    {m.phase === 'REPORT' ? 'Problema' : 'Conclusão'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Lightbox */}
+      <Modal visible={!!lightboxUrl} transparent animationType="fade" onRequestClose={() => setLightboxUrl(null)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}
+          activeOpacity={1}
+          onPress={() => setLightboxUrl(null)}
+        >
+          {lightboxUrl && (
+            <Image
+              source={{ uri: lightboxUrl }}
+              style={{ width: '95%', height: '70%' }}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={{ color: '#fff', marginTop: 16, opacity: 0.6, fontSize: 13 }}>Toque para fechar</Text>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Avaliação */}
       {order.status === 'AWAITING_APPROVAL' && !rated && (
