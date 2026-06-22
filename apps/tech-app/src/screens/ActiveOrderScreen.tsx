@@ -5,29 +5,31 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
+import * as FileSystem from 'expo-file-system/legacy'
 import Constants from 'expo-constants'
 import api from '../services/api'
 
 const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string
 const SUPABASE_KEY = Constants.expoConfig?.extra?.supabaseAnonKey as string
 
-async function uploadToStorage(photoUri: string, filename: string): Promise<string | null> {
-  try {
-    const response = await fetch(photoUri)
-    const blob = await response.blob()
-    const uploadRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg' },
-        body: blob,
-      }
-    )
-    if (!uploadRes.ok) return null
-    return `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
-  } catch {
-    return null
+async function uploadToStorage(photoUri: string, filename: string): Promise<string> {
+  const result = await FileSystem.uploadAsync(
+    `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
+    photoUri,
+    {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true',
+      },
+    }
+  )
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Upload falhou (${result.status}): ${result.body}`)
   }
+  return `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
 }
 
 const STATUS_FLOW = [
@@ -118,14 +120,13 @@ export default function ActiveOrderScreen({ route, navigation }: any) {
     }
   }
 
-  async function uploadCompletionPhoto(photoUri: string) {
+  async function uploadCompletionPhoto(photoUri: string): Promise<void> {
     const filename = `orders/${orderId}/completion-${Date.now()}.jpg`
+    // Lança erro se o upload falhar — o chamador decide se avança o status
     const publicUrl = await uploadToStorage(photoUri, filename)
-    if (publicUrl) {
-      await api.post(`/orders/${orderId}/media`, {
-        url: publicUrl, phase: 'COMPLETION', mimeType: 'image/jpeg',
-      })
-    }
+    await api.post(`/orders/${orderId}/media`, {
+      url: publicUrl, phase: 'COMPLETION', mimeType: 'image/jpeg',
+    })
   }
 
   async function handleStatusUpdate(nextStatus: string, confirm: string) {
@@ -144,7 +145,16 @@ export default function ActiveOrderScreen({ route, navigation }: any) {
           setActionLoading(true)
           try {
             if (nextStatus === 'AWAITING_APPROVAL' && completionPhoto) {
-              await uploadCompletionPhoto(completionPhoto)
+              // Foto obrigatória: se falhar, erro é lançado e NÃO avançamos o status
+              try {
+                await uploadCompletionPhoto(completionPhoto)
+              } catch (uploadError: any) {
+                Alert.alert(
+                  'Erro no envio da foto',
+                  `A foto de conclusão não foi enviada e o serviço não foi finalizado.\n\n${uploadError.message}\n\nVerifique sua conexão e tente novamente.`
+                )
+                return
+              }
             }
             await api.patch(`/orders/${orderId}/status`, { status: nextStatus })
             await loadOrder()

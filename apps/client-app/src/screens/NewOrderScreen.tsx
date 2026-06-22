@@ -5,29 +5,32 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
+import * as FileSystem from 'expo-file-system/legacy'
 import Constants from 'expo-constants'
 import api from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 
 const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string
 const SUPABASE_KEY = Constants.expoConfig?.extra?.supabaseAnonKey as string
 
-async function uploadToStorage(photoUri: string, filename: string): Promise<string | null> {
-  try {
-    const response = await fetch(photoUri)
-    const blob = await response.blob()
-    const uploadRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg' },
-        body: blob,
-      }
-    )
-    if (!uploadRes.ok) return null
-    return `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
-  } catch {
-    return null
+async function uploadToStorage(photoUri: string, filename: string): Promise<string> {
+  const result = await FileSystem.uploadAsync(
+    `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
+    photoUri,
+    {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true',
+      },
+    }
+  )
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Upload falhou (${result.status}): ${result.body}`)
   }
+  return `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
 }
 
 const SUBCATEGORIES: Record<string, { key: string; label: string }[]> = {
@@ -72,6 +75,7 @@ const PRIORITIES = [
 export default function NewOrderScreen({ route, navigation }: any) {
   const { category } = route.params
   const subcats = SUBCATEGORIES[category.key] || []
+  const { user } = useAuth()
 
   const [step, setStep] = useState(1) // 1=subcat, 2=prioridade, 3=detalhes
   const [subcategory, setSubcategory] = useState('')
@@ -127,31 +131,64 @@ export default function NewOrderScreen({ route, navigation }: any) {
     if (!subcategory) { Alert.alert('Atenção', 'Selecione o tipo do problema'); return }
     setLoading(true)
     try {
+      // Resolve o endereço real do cliente
+      const client = user?.client
+      const baseAddress = client?.addressLine || ''
+      const serviceCity = client?.city || ''
+
+      // Em condomínio, anexa bloco/andar/unidade para o técnico localizar a unidade exata
+      let serviceAddress = baseAddress
+      if (client?.type === 'CONDO') {
+        const condoParts: string[] = []
+        if (client?.condoName) condoParts.push(client.condoName)
+        if (client?.condoBlock) condoParts.push(`Bloco ${client.condoBlock}`)
+        if (client?.condoFloor != null) condoParts.push(`${client.condoFloor}º andar`)
+        if (client?.condoUnit) condoParts.push(`Unidade ${client.condoUnit}`)
+        if (condoParts.length > 0) {
+          serviceAddress = baseAddress
+            ? `${baseAddress} — ${condoParts.join(', ')}`
+            : condoParts.join(', ')
+        }
+      }
+
+      if (!baseAddress || !serviceCity) {
+        Alert.alert('Endereço incompleto', 'Complete seu perfil com endereço antes de abrir um chamado.')
+        setLoading(false)
+        return
+      }
+
       // Cria o chamado
       const orderRes = await api.post('/orders', {
         category: category.key,
         subcategory,
         priority,
         description,
-        serviceAddress: 'Endereço do perfil',
-        serviceCity: 'São Paulo',
+        serviceAddress,
+        serviceCity,
       })
       const orderId = orderRes.data.data.id
 
-      // Upload das fotos para Supabase Storage
+      // Upload das fotos para Supabase Storage — falha não bloqueia o chamado
+      let photoFailCount = 0
       for (const photoUri of photos) {
         const filename = `orders/${orderId}/${Date.now()}.jpg`
-        const publicUrl = await uploadToStorage(photoUri, filename)
-        if (publicUrl) {
+        try {
+          const publicUrl = await uploadToStorage(photoUri, filename)
           await api.post(`/orders/${orderId}/media`, {
             url: publicUrl, phase: 'REPORT', mimeType: 'image/jpeg',
           })
+        } catch {
+          photoFailCount++
         }
       }
 
+      const photoWarning = photoFailCount > 0
+        ? `\n\nAtenção: ${photoFailCount} foto(s) não enviada(s). Tente reenviar mais tarde.`
+        : ''
+
       Alert.alert(
         'Chamado aberto! 🎉',
-        `Código: ${orderRes.data.data.problemCode}\n\nUm técnico será designado em breve.`,
+        `Código: ${orderRes.data.data.problemCode}\n\nUm técnico será designado em breve.${photoWarning}`,
         [{ text: 'Acompanhar', onPress: () => navigation.replace('OrderStatus', { orderId }) }]
       )
     } catch (error: any) {
