@@ -1,10 +1,17 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Alert, ScrollView, Switch,
+  Alert, ScrollView, Switch, Image, ActivityIndicator,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import * as ImageManipulator from 'expo-image-manipulator'
+import * as FileSystem from 'expo-file-system/legacy'
+import Constants from 'expo-constants'
 import { useAuth } from '../hooks/useAuth'
 import api from '../services/api'
+
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string
+const SUPABASE_KEY = Constants.expoConfig?.extra?.supabaseAnonKey as string
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: string }> = {
   HID: { label: 'Hidráulica',  icon: '💧', color: '#3B82F6' },
@@ -17,6 +24,7 @@ export default function ProfileScreen() {
   const { user, signOut, refreshUser } = useAuth()
   const tech = user?.technician
   const [availLoading, setAvailLoading] = useState(false)
+  const [photoLoading, setPhotoLoading] = useState(false)
   const isAvailable = tech?.status === 'AVAILABLE'
 
   async function toggleAvailability(value: boolean) {
@@ -29,6 +37,59 @@ export default function ProfileScreen() {
       Alert.alert('Erro', 'Não foi possível alterar disponibilidade')
     } finally {
       setAvailLoading(false)
+    }
+  }
+
+  async function handlePhotoChange() {
+    Alert.alert('Foto de perfil', 'Como deseja adicionar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: '📷 Câmera', onPress: () => pickPhoto('camera') },
+      { text: '🖼️ Galeria', onPress: () => pickPhoto('gallery') },
+    ])
+  }
+
+  async function pickPhoto(source: 'camera' | 'gallery') {
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync()
+      if (perm.status !== 'granted') { Alert.alert('Permissão necessária', 'Permita o acesso à câmera.'); return }
+    } else {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') { Alert.alert('Permissão necessária', 'Permita o acesso à galeria.'); return }
+    }
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
+    if (result.canceled || !tech?.id) return
+    setPhotoLoading(true)
+    try {
+      const compressed = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      )
+      const filename = `technicians/${tech.id}/profile.jpg`
+      const uploadRes = await FileSystem.uploadAsync(
+        `${SUPABASE_URL}/storage/v1/object/order-media/${filename}`,
+        compressed.uri,
+        {
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: {
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'image/jpeg',
+            'x-upsert': 'true',
+          },
+        }
+      )
+      if (uploadRes.status < 200 || uploadRes.status >= 300) throw new Error('Upload falhou')
+      const photoUrl = `${SUPABASE_URL}/storage/v1/object/public/order-media/${filename}`
+      await api.patch(`/technicians/${tech.id}`, { photoUrl })
+      await refreshUser()
+      Alert.alert('Foto atualizada!', 'Sua foto de perfil foi salva com sucesso.')
+    } catch {
+      Alert.alert('Erro', 'Não foi possível salvar a foto. Tente novamente.')
+    } finally {
+      setPhotoLoading(false)
     }
   }
 
@@ -45,12 +106,28 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
       {/* Avatar / Nome */}
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
-        </View>
+        <TouchableOpacity onPress={handlePhotoChange} style={styles.avatarWrapper} disabled={photoLoading}>
+          {tech?.photoUrl ? (
+            <Image source={{ uri: tech.photoUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
+          {photoLoading ? (
+            <View style={styles.avatarOverlay}><ActivityIndicator color="#fff" /></View>
+          ) : (
+            <View style={styles.avatarOverlay}><Text style={{ color: '#fff', fontSize: 11 }}>📷</Text></View>
+          )}
+        </TouchableOpacity>
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.role}>Técnico Credenciado</Text>
         {tech?.city && <Text style={styles.city}>📍 {tech.city}</Text>}
+        {tech?.matricula && (
+          <View style={styles.matriculaChip}>
+            <Text style={styles.matriculaText}>🪪 {tech.matricula}</Text>
+          </View>
+        )}
       </View>
 
       {/* Disponibilidade */}
@@ -134,15 +211,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E40AF', paddingTop: 24, paddingBottom: 32,
     alignItems: 'center',
   },
+  avatarWrapper: { position: 'relative', marginBottom: 12 },
+  avatarImage: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' },
+  avatarOverlay: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+  },
   avatar: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 12,
+    justifyContent: 'center',
   },
   avatarText: { fontSize: 36, fontWeight: 'bold', color: '#fff' },
   name: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   role: { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   city: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  matriculaChip: {
+    marginTop: 8, backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4,
+  },
+  matriculaText: { fontSize: 13, color: '#fff', fontWeight: '700', letterSpacing: 1 },
   section: {
     backgroundColor: '#fff', margin: 16, marginBottom: 0,
     borderRadius: 12, padding: 16,

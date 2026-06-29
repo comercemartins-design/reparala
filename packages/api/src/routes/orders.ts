@@ -13,6 +13,7 @@ const createOrderSchema = z.object({
   serviceCity: z.string(),
   serviceLat: z.number().optional(),
   serviceLng: z.number().optional(),
+  requestedTechnicianId: z.string().optional(),
 })
 
 export async function orderRoutes(app: FastifyInstance) {
@@ -43,9 +44,70 @@ export async function orderRoutes(app: FastifyInstance) {
         serviceCity: body.serviceCity,
         serviceLat: body.serviceLat,
         serviceLng: body.serviceLng,
+        ...(body.requestedTechnicianId && { requestedTechnicianId: body.requestedTechnicianId }),
       },
       include: { client: { include: { user: true } }, media: true },
     })
+
+    // Lida com técnico preferido solicitado pelo cliente
+    if (body.requestedTechnicianId) {
+      const requestedTech = await prisma.technician.findUnique({
+        where: { id: body.requestedTechnicianId },
+        include: { user: true },
+      })
+
+      if (requestedTech && requestedTech.status === 'AVAILABLE') {
+        // Técnico disponível: despacha direto para ele
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { technicianId: requestedTech.id, status: 'DISPATCHED', dispatchedAt: new Date() },
+        })
+        await prisma.dispatchLog.create({ data: { orderId: order.id, technicianId: requestedTech.id, action: 'offered' } })
+        if (requestedTech.user.pushToken) {
+          await sendPushNotification(
+            requestedTech.user.pushToken,
+            '🔔 Chamado solicitado para você!',
+            `Um cliente pediu especificamente por você. ${body.category} — ${problemCode}`,
+            { orderId: order.id, screen: 'OrderOffer' }
+          )
+        }
+      } else {
+        // Técnico indisponível: notifica cliente e busca outro disponível
+        if (order.client.user.pushToken) {
+          await sendPushNotification(
+            order.client.user.pushToken,
+            '⚠️ Técnico preferido indisponível',
+            'O técnico solicitado está ocupado ou offline. Estamos buscando outro técnico disponível para você.',
+            { orderId: order.id }
+          )
+        }
+        // Tenta despachar para o melhor técnico disponível com a especialidade
+        const fallbackTech = await prisma.technician.findFirst({
+          where: {
+            status: 'AVAILABLE',
+            specialties: { has: body.category },
+            id: { not: body.requestedTechnicianId },
+          },
+          include: { user: true },
+          orderBy: [{ rating: 'desc' }, { jobsTotal: 'asc' }],
+        })
+        if (fallbackTech) {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { technicianId: fallbackTech.id, status: 'DISPATCHED', dispatchedAt: new Date() },
+          })
+          await prisma.dispatchLog.create({ data: { orderId: order.id, technicianId: fallbackTech.id, action: 'offered' } })
+          if (fallbackTech.user.pushToken) {
+            await sendPushNotification(
+              fallbackTech.user.pushToken,
+              '🔔 Novo chamado disponível!',
+              `${body.category} — ${problemCode}`,
+              { orderId: order.id, screen: 'OrderOffer' }
+            )
+          }
+        }
+      }
+    }
 
     // Notifica todos os admins
     const admins = await prisma.user.findMany({ where: { role: 'ADMIN', pushToken: { not: null } } })

@@ -97,17 +97,43 @@ export function OrderStatusScreen({ route, navigation }: any) {
       {/* Técnico */}
       {order.technician && (
         <View style={styles.techCard}>
+          {/* Foto */}
+          {order.technician.photoUrl ? (
+            <Image
+              source={{ uri: order.technician.photoUrl }}
+              style={{ width: 56, height: 56, borderRadius: 28, marginRight: 12, backgroundColor: '#e5e5e5' }}
+            />
+          ) : (
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#1E40AF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#fff' }}>
+                {(order.technician.user?.name || 'T').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={styles.techLabel}>Técnico responsável</Text>
             <Text style={styles.techName}>{order.technician.user?.name}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-              <View style={[styles.techRating, { alignSelf: 'flex-start' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+              <View style={styles.techRating}>
                 <Text style={styles.techRatingText}>⭐ {order.technician.rating?.toFixed(1) || 'Novo'}</Text>
               </View>
+              {order.technician.matricula ? (
+                <View style={{ backgroundColor: '#EFF6FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: 11, color: '#1E40AF', fontWeight: '700' }}>{order.technician.matricula}</Text>
+                </View>
+              ) : null}
             </View>
+            {order.technician.specialties?.length > 0 && (
+              <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
+                {order.technician.specialties.join(' • ')}
+              </Text>
+            )}
+            {order.technician.city ? (
+              <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>📍 {order.technician.city}</Text>
+            ) : null}
           </View>
           {order.technician.user?.phone && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{ backgroundColor: '#D1FAE5', padding: 12, borderRadius: 12, marginLeft: 10 }}
               onPress={() => {
                 const phoneDigits = order.technician.user.phone.replace(/\D/g, '')

@@ -77,12 +77,32 @@ export default function NewOrderScreen({ route, navigation }: any) {
   const subcats = SUBCATEGORIES[category.key] || []
   const { user } = useAuth()
 
-  const [step, setStep] = useState(1) // 1=subcat, 2=prioridade, 3=detalhes
+  const [step, setStep] = useState(1) // 1=subcat, 2=prioridade, 3=técnico, 4=detalhes
   const [subcategory, setSubcategory] = useState('')
   const [priority, setPriority] = useState('NORMAL')
   const [description, setDescription] = useState('')
   const [photos, setPhotos] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [matriculaInput, setMatriculaInput] = useState('')
+  const [techSearching, setTechSearching] = useState(false)
+  const [requestedTech, setRequestedTech] = useState<null | { id: string; name: string; specialties: string[]; rating: number; photoUrl?: string; available: boolean }>(null)
+  const [techSearchError, setTechSearchError] = useState('')
+
+  async function searchTechByMatricula() {
+    const code = matriculaInput.trim().toUpperCase()
+    if (!code) { setTechSearchError('Digite a matrícula do técnico'); return }
+    setTechSearching(true)
+    setTechSearchError('')
+    setRequestedTech(null)
+    try {
+      const res = await api.get(`/technicians/by-matricula/${code}`)
+      setRequestedTech(res.data.data)
+    } catch {
+      setTechSearchError('Técnico não encontrado. Verifique a matrícula.')
+    } finally {
+      setTechSearching(false)
+    }
+  }
 
   async function pickPhoto() {
     if (photos.length >= 3) {
@@ -165,6 +185,7 @@ export default function NewOrderScreen({ route, navigation }: any) {
         description,
         serviceAddress,
         serviceCity,
+        ...(requestedTech ? { requestedTechnicianId: requestedTech.id } : {}),
       })
       const orderId = orderRes.data.data.id
 
@@ -202,7 +223,7 @@ export default function NewOrderScreen({ route, navigation }: any) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Progress */}
       <View style={styles.progress}>
-        {[1, 2, 3].map((s) => (
+        {[1, 2, 3, 4].map((s) => (
           <View key={s} style={[styles.progressStep, step >= s && styles.progressStepActive]} />
         ))}
       </View>
@@ -261,8 +282,66 @@ export default function NewOrderScreen({ route, navigation }: any) {
         </View>
       )}
 
-      {/* STEP 3 — Detalhes e fotos */}
+      {/* STEP 3 — Técnico preferido (opcional) */}
       {step === 3 && (
+        <View>
+          <Text style={styles.stepTitle}>👨‍🔧 Tem um técnico preferido?</Text>
+          <Text style={styles.stepSubtitle}>Digite a matrícula — ou pule para o sistema escolher</Text>
+
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+            <TextInput
+              style={[styles.textarea, { flex: 1, height: 48, textAlignVertical: 'center', marginTop: 0 }]}
+              placeholder="Ex: TEC-0001"
+              value={matriculaInput}
+              onChangeText={(t) => { setMatriculaInput(t); setTechSearchError(''); setRequestedTech(null) }}
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity
+              style={[styles.nextButton, { marginTop: 0, paddingHorizontal: 16 }]}
+              onPress={searchTechByMatricula}
+              disabled={techSearching}
+            >
+              {techSearching ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.nextButtonText}>Buscar</Text>}
+            </TouchableOpacity>
+          </View>
+
+          {techSearchError ? <Text style={{ color: '#EF4444', fontSize: 13, marginBottom: 8 }}>{techSearchError}</Text> : null}
+
+          {requestedTech && (
+            <View style={{ backgroundColor: requestedTech.available ? '#F0FDF4' : '#FEF3C7', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1.5, borderColor: requestedTech.available ? '#10B981' : '#F59E0B' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {requestedTech.photoUrl ? (
+                  <Image source={{ uri: requestedTech.photoUrl }} style={{ width: 52, height: 52, borderRadius: 26 }} />
+                ) : (
+                  <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#1E40AF', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#fff' }}>{requestedTech.name.charAt(0)}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '700', fontSize: 15, color: '#1a1a1a' }}>{requestedTech.name}</Text>
+                  <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>⭐ {requestedTech.rating.toFixed(1)} • {requestedTech.city}</Text>
+                  <Text style={{ fontSize: 11, color: requestedTech.available ? '#065F46' : '#92400E', marginTop: 2, fontWeight: '600' }}>
+                    {requestedTech.available ? '● Disponível' : '● Ocupado — outro técnico será designado'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => { setRequestedTech(null); setMatriculaInput('') }}>
+                  <Text style={{ fontSize: 18, color: '#9CA3AF' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.nextButton} onPress={() => setStep(4)}>
+            <Text style={styles.nextButtonText}>{requestedTech ? 'Confirmar técnico →' : 'Pular →'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setStep(2)}>
+            <Text style={styles.backButtonText}>← Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* STEP 4 — Detalhes e fotos */}
+      {step === 4 && (
         <View>
           <Text style={styles.stepTitle}>📝 Detalhes do problema</Text>
           <Text style={styles.stepSubtitle}>Quanto mais informação, melhor!</Text>
@@ -302,7 +381,7 @@ export default function NewOrderScreen({ route, navigation }: any) {
               <Text style={styles.submitButtonText}>Abrir chamado 🚀</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => setStep(2)}>
+          <TouchableOpacity style={styles.backButton} onPress={() => setStep(3)}>
             <Text style={styles.backButtonText}>← Voltar</Text>
           </TouchableOpacity>
         </View>

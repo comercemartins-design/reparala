@@ -64,6 +64,9 @@ export async function technicianRoutes(app: FastifyInstance) {
       return reply.code(400).send({ success: false, error: errMsg })
     }
 
+    const techCount = await prisma.technician.count()
+    const matricula = `TEC-${String(techCount + 1).padStart(4, '0')}`
+
     const user = await prisma.user.create({
       data: {
         supabaseId: authData.id,
@@ -74,6 +77,7 @@ export async function technicianRoutes(app: FastifyInstance) {
           create: {
             city: body.city,
             specialties: body.specialties,
+            matricula,
           },
         },
       },
@@ -81,6 +85,29 @@ export async function technicianRoutes(app: FastifyInstance) {
     })
 
     return reply.code(201).send({ success: true, data: user, error: null })
+  })
+
+  // GET /technicians/by-matricula/:code — Busca técnico por matrícula (público)
+  app.get('/by-matricula/:code', async (request, reply) => {
+    const { code } = request.params as { code: string }
+    const tech = await prisma.technician.findUnique({
+      where: { matricula: code.toUpperCase() },
+      include: { user: { select: { name: true } } },
+    })
+    if (!tech) return reply.code(404).send({ success: false, error: 'Técnico não encontrado' })
+    return reply.send({
+      success: true,
+      data: {
+        id: tech.id,
+        name: tech.user.name,
+        specialties: tech.specialties,
+        rating: tech.rating,
+        city: tech.city,
+        photoUrl: tech.photoUrl,
+        matricula: tech.matricula,
+        available: tech.status === 'AVAILABLE',
+      },
+    })
   })
 
   // GET /technicians/:id — Detalhes de um técnico (admin)
@@ -138,7 +165,7 @@ export async function technicianRoutes(app: FastifyInstance) {
   // PATCH /technicians/:id — Atualiza dados do técnico (admin)
   app.patch('/:id', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { specialties, city, status, name, phone, password } = request.body as any
+    const { specialties, city, status, name, phone, password, photoUrl } = request.body as any
 
     const technician = await prisma.technician.update({
       where: { id },
@@ -146,6 +173,7 @@ export async function technicianRoutes(app: FastifyInstance) {
         ...(specialties && { specialties }),
         ...(city && { city }),
         ...(status && { status }),
+        ...(photoUrl !== undefined && { photoUrl }),
       },
       include: { user: true },
     })
