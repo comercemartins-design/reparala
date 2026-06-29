@@ -106,6 +106,7 @@ export default function TechniciansPage() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-3">Técnico</th>
+              <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Matrícula</th>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Especialidades</th>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Cidade</th>
               <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Avaliação</th>
@@ -136,6 +137,13 @@ export default function TechniciansPage() {
                       <p className="text-sm font-semibold text-gray-900">{tech.user?.name}</p>
                       <p className="text-xs text-gray-400">{tech.user?.phone || '—'}</p>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {tech.matricula ? (
+                      <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-2 py-1">{tech.matricula}</span>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">

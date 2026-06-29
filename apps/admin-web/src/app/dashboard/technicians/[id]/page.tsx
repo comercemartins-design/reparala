@@ -112,7 +112,12 @@ export default function TechnicianEditPage() {
         <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">Editar técnico</h1>
-          <p className="text-gray-500 text-sm">Cadastrado em {new Date(tech.createdAt).toLocaleDateString('pt-BR')}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-gray-500 text-sm">Cadastrado em {new Date(tech.createdAt).toLocaleDateString('pt-BR')}</p>
+            {tech.matricula && (
+              <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-2 py-0.5">{tech.matricula}</span>
+            )}
+          </div>
         </div>
         <StatusBadge status={tech.status} />
       </div>

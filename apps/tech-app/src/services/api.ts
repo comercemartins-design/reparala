@@ -6,7 +6,7 @@ const API_URL = 'https://reparala-api.onrender.com'
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000,
+  timeout: 35000,
   headers: { 'Content-Type': 'application/json' },
 })
 

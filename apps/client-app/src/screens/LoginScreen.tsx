@@ -14,6 +14,7 @@ export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [slowWarning, setSlowWarning] = useState(false)
 
   async function handleLogin() {
     if (!email || !password) {
@@ -21,12 +22,16 @@ export default function LoginScreen({ navigation }: any) {
       return
     }
     setLoading(true)
+    setSlowWarning(false)
+    const slowTimer = setTimeout(() => setSlowWarning(true), 5000)
     try {
       await signIn(email.trim().toLowerCase(), password)
     } catch (error: any) {
       Alert.alert('Erro', error.response?.data?.error || 'Email ou senha inválidos')
     } finally {
+      clearTimeout(slowTimer)
       setLoading(false)
+      setSlowWarning(false)
     }
   }
 
@@ -122,6 +127,14 @@ export default function LoginScreen({ navigation }: any) {
                 : <Text style={s.btnText}>Entrar</Text>
               }
             </TouchableOpacity>
+
+            {slowWarning && (
+              <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginTop: 8 }}>
+                <Text style={{ fontSize: 12, color: '#92400E', textAlign: 'center' }}>
+                  ⏳ Servidor acordando... pode levar até 30 segundos na primeira vez.
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={s.regLink}

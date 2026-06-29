@@ -47,8 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(storedToken[1])
         setUser(JSON.parse(storedUser[1]))
       }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+    } catch {
     } finally {
       setLoading(false)
     }
@@ -60,8 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const updatedUser = response.data.data
       await AsyncStorage.setItem('@reparala:user', JSON.stringify(updatedUser))
       setUser(updatedUser)
-    } catch (error) {
-      console.error('Erro ao atualizar usuário:', error)
+    } catch {
     }
   }
 

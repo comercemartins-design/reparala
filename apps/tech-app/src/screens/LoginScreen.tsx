@@ -10,6 +10,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [slowWarning, setSlowWarning] = useState(false)
 
   async function handleLogin() {
     if (!email || !password) {
@@ -17,12 +18,16 @@ export default function LoginScreen() {
       return
     }
     setLoading(true)
+    setSlowWarning(false)
+    const slowTimer = setTimeout(() => setSlowWarning(true), 5000)
     try {
       await signIn(email.trim().toLowerCase(), password)
     } catch (error: any) {
       Alert.alert('Erro ao entrar', error.response?.data?.error || error.message || 'Email ou senha inválidos')
     } finally {
+      clearTimeout(slowTimer)
       setLoading(false)
+      setSlowWarning(false)
     }
   }
 
@@ -66,6 +71,14 @@ export default function LoginScreen() {
               : <Text style={styles.buttonText}>Entrar</Text>
             }
           </TouchableOpacity>
+
+          {slowWarning && (
+            <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: '#92400E', textAlign: 'center' }}>
+                ⏳ Servidor acordando... pode levar até 30 segundos na primeira vez.
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.hint}>Sua conta é criada pelo administrador do sistema.</Text>
         </View>
