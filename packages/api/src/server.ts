@@ -41,17 +41,6 @@ async function main() {
     timestamp: new Date().toISOString(),
   }))
 
-  // Endpoint de debug temporário — remover após confirmar chave
-  app.get('/debug-env', async () => {
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    return {
-      supabaseUrl: process.env.SUPABASE_URL,
-      keyLength: key.length,
-      keyStart: key.substring(0, 20),
-      keyEnd: key.substring(key.length - 20),
-    }
-  })
-
   cron.schedule('*/5 * * * *', async () => {
     await checkStaleDispatches()
   })
