@@ -59,7 +59,9 @@ export async function technicianRoutes(app: FastifyInstance) {
     })
     const authData = await sbRes.json() as any
     if (!sbRes.ok) {
-      return reply.code(400).send({ success: false, error: authData.msg || authData.error_description || 'Erro ao criar usuário' })
+      app.log.error({ supabaseError: authData, status: sbRes.status }, 'Falha ao criar usuário no Supabase Auth')
+      const errMsg = authData.message || authData.msg || authData.error_description || authData.error || JSON.stringify(authData)
+      return reply.code(400).send({ success: false, error: errMsg })
     }
 
     const user = await prisma.user.create({
